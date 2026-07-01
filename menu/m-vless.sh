@@ -100,7 +100,7 @@ add_user() {
     systemctl restart xray >/dev/null 2>&1
 
     vless_tls="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
-    vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
+    vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&encryption=none&host=${domain}&type=ws#${user}"
     vless_grpc="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless&sni=${domain}#${user}"
 
     CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null); ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
@@ -198,7 +198,7 @@ trial_user() {
     systemctl restart xray >/dev/null 2>&1
 
     vless_tls="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
-    vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
+    vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&encryption=none&host=${domain}&type=ws#${user}"
     vless_grpc="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless&sni=${domain}#${user}"
 
     CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null); ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
@@ -302,7 +302,7 @@ cek_user() {
     [[ -z "$exp_date" ]] && exp_date="Lifetime"
 
     vless_tls="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
-    vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
+    vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&encryption=none&host=${domain}&type=ws#${user}"
     vless_grpc="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless&sni=${domain}#${user}"
 
     CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null); ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
