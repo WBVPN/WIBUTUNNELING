@@ -20,12 +20,17 @@ create_account() {
     local proto=$1
     local user=$2
     local hari=$3
+    local limit_ip=${4:-0}
+    local limit_bw=${5:-0}
     
     # Validation
     if [[ ! "$hari" =~ ^[0-9]+$ || "$hari" -le 0 ]]; then
         send_msg "❌ <b>Format Hari Salah!</b>\nGunakan angka."
         return
     fi
+    if [[ ! "$limit_ip" =~ ^[0-9]+$ ]]; then limit_ip=0; fi
+    if [[ ! "$limit_bw" =~ ^[0-9]+$ ]]; then limit_bw=0; fi
+    
     if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then
         send_msg "❌ <b>Nama User Salah!</b>\nHanya boleh huruf dan angka."
         return
@@ -39,6 +44,9 @@ create_account() {
     local domain=$(cat /etc/xray/domain 2>/dev/null)
     local exp_date=$(date -d "+${hari} days" +"%Y-%m-%d %H:%M:%S")
     local tampil_exp=$(date -d "+${hari} days" +"%Y-%m-%d")
+    local link1=""
+    local link2=""
+    local link3=""
     
     if [[ "$proto" == "VLESS" ]]; then
         jq --arg uuid "$uuid" --arg user "$user" '
@@ -47,6 +55,9 @@ create_account() {
             .inbounds[3].settings.clients += [{"id": $uuid, "email": $user}]
         ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
         echo "${user}:${exp_date}" >> /etc/xray/vless_exp.conf
+        link1="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
+        link2="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
+        link3="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless&sni=${domain}#${user}"
     elif [[ "$proto" == "VMESS" ]]; then
         jq --arg uuid "$uuid" --arg user "$user" '
             .inbounds[4].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
@@ -54,21 +65,44 @@ create_account() {
             .inbounds[6].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}]
         ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
         echo "${user}:${exp_date}" >> /etc/xray/vmess_exp.conf
+        link1="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
+        link2="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"80\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess-ntls\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"\",\"sni\":\"\"}" | base64 -w 0)"
+        link3="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"grpc\",\"path\":\"vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
     elif [[ "$proto" == "TROJAN" ]]; then
         jq --arg uuid "$uuid" --arg user "$user" '
             .inbounds[7].settings.clients += [{"password": $uuid, "email": $user}] |
             .inbounds[8].settings.clients += [{"password": $uuid, "email": $user}]
         ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
         echo "${user}:${exp_date}" >> /etc/xray/trojan_exp.conf
+        link1="trojan://${uuid}@${domain}:443?path=/trojan&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
+        link2="trojan://${uuid}@${domain}:443?mode=gun&security=tls&type=grpc&serviceName=trojan&sni=${domain}#${user}"
     fi
 
-    # Default Limit: 0 (Bebas)
-    echo "${user}:0" >> /etc/wibutunnel/limit_ip.db
-    echo "${user}:0" >> /etc/wibutunnel/limit_bw.db
-    
+    echo "${user}:${limit_ip}" >> /etc/wibutunnel/limit_ip.db
+    echo "${user}:${limit_bw}" >> /etc/wibutunnel/limit_bw.db
     systemctl restart xray >/dev/null 2>&1
 
-    local pesan="✅ <b>${proto} BERHASIL DIBUAT!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Domain :</b> <code>${domain}</code>\n<b>UUID :</b> <code>${uuid}</code>\n<b>Expired :</b> <code>${tampil_exp}</code>\n\n<i>Gunakan menu di VPS untuk melihat format link selengkapnya.</i>"
+    [[ "$limit_ip" -eq 0 ]] && limit_ip="Bebas" || limit_ip="${limit_ip} IP"
+    [[ "$limit_bw" -eq 0 ]] && limit_bw="Unlimited" || limit_bw="${limit_bw} GB"
+
+    local pesan="━━━━━━━━━━━━━━━━━━━━\n"
+    pesan+=" ✅ <b>${proto} ACCOUNT CREATED</b>\n"
+    pesan+="━━━━━━━━━━━━━━━━━━━━\n"
+    pesan+=" <b>User     :</b> <code>${user}</code>\n"
+    pesan+=" <b>Domain   :</b> <code>${domain}</code>\n"
+    pesan+=" <b>Expired  :</b> <code>${tampil_exp}</code>\n"
+    pesan+=" <b>Limit IP :</b> ${limit_ip}\n"
+    pesan+=" <b>Limit BW :</b> ${limit_bw}\n"
+    pesan+="━━━━━━━━━━━━━━━━━━━━\n\n"
+    pesan+="🌐 <b>Link TLS (WS):</b>\n<code>${link1}</code>\n\n"
+    if [[ -n "$link3" ]]; then
+        pesan+="🌐 <b>Link NTLS (WS):</b>\n<code>${link2}</code>\n\n"
+        pesan+="🌐 <b>Link GRPC:</b>\n<code>${link3}</code>\n"
+    else
+        pesan+="🌐 <b>Link GRPC:</b>\n<code>${link2}</code>\n"
+    fi
+    pesan+="━━━━━━━━━━━━━━━━━━━━"
+    
     send_msg "$pesan"
 }
 
@@ -84,7 +118,7 @@ delete_account() {
         .inbounds[5].settings.clients |= map(select(.email != $u)) |
         .inbounds[6].settings.clients |= map(select(.email != $u)) |
         .inbounds[7].settings.clients |= map(select(.email != $u)) |
-        .inbounds[8].settings.clients |= map(select(.email != $u)) |
+        .inbounds[8].settings.clients |= map(select(.password != $u)) |
         (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))
     ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
 
@@ -123,28 +157,32 @@ while true; do
                     CMD=$(echo "$TEXT" | awk '{print $1}')
                     ARG1=$(echo "$TEXT" | awk '{print $2}')
                     ARG2=$(echo "$TEXT" | awk '{print $3}')
+                    ARG3=$(echo "$TEXT" | awk '{print $4}')
+                    ARG4=$(echo "$TEXT" | awk '{print $5}')
                     
                     case "$CMD" in
                         /start|/menu|/help)
                             MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\n"
                             MSG+="✨ <b>Menu Create Account</b>\n"
-                            MSG+="├ <code>/vless [user] [hari]</code>\n"
-                            MSG+="├ <code>/vmess [user] [hari]</code>\n"
-                            MSG+="└ <code>/trojan [user] [hari]</code>\n\n"
+                            MSG+="├ <code>/vless [user] [hari] [ip] [gb]</code>\n"
+                            MSG+="├ <code>/vmess [user] [hari] [ip] [gb]</code>\n"
+                            MSG+="└ <code>/trojan [user] [hari] [ip] [gb]</code>\n\n"
                             MSG+="⚙️ <b>Menu Management</b>\n"
                             MSG+="├ <code>/hapus [user]</code>\n"
                             MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
-                            MSG+="━━━━━━━━━━━━━━━━━━━━"
+                            MSG+="━━━━━━━━━━━━━━━━━━━━\n"
+                            MSG+="<i>Contoh: /vless budi 30 2 10</i>\n"
+                            MSG+="<i>(Membuat VLESS 'budi' 30 hr, limit 2 IP, limit 10 GB)</i>"
                             send_msg "$MSG"
                             ;;
                         /vless)
-                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "VLESS" "$ARG1" "$ARG2" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/vless nama_user 30</code>"
+                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "VLESS" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/vless nama_user 30</code>"
                             ;;
                         /vmess)
-                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "VMESS" "$ARG1" "$ARG2" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/vmess nama_user 30</code>"
+                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "VMESS" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/vmess nama_user 30</code>"
                             ;;
                         /trojan)
-                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "TROJAN" "$ARG1" "$ARG2" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/trojan nama_user 30</code>"
+                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "TROJAN" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/trojan nama_user 30</code>"
                             ;;
                         /hapus)
                             [[ -n "$ARG1" ]] && delete_account "$ARG1" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/hapus nama_user</code>"
