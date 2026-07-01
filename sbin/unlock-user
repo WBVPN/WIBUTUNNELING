@@ -1,0 +1,49 @@
+#!/bin/bash
+# ==========================================
+# WIBU TUNNELING - unlock-user (Improved v2)
+# Supports reason + Telegram Notification
+# ==========================================
+
+source /etc/wibutunnel/bot.conf 2>/dev/null
+
+user=$1
+mode=$2   # AUTO atau MANUAL
+
+[[ -z "$user" ]] && exit 1
+
+# Unlock dari Xray config
+jq '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != "'$user'"))' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+
+# Hapus dari database lock
+sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
+
+systemctl restart xray >/dev/null 2>&1
+
+# === TELEGRAM NOTIFICATION ===
+if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
+    DOMAIN=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
+    WAKTU=$(date '+%d %b %Y %H:%M WIB')
+    
+    if [[ "$mode" == "AUTO" ]]; then
+        CARA="Otomatis (Durasi Lock Habis)"
+    else
+        CARA="Manual oleh Admin"
+    fi
+
+    PESAN="
+🔓 <b>USER DIBUKA KEMBALI</b>
+
+<b>User     :</b> <code>${user}</code>
+<b>Cara     :</b> ${CARA}
+<b>Waktu    :</b> ${WAKTU}
+<b>Domain   :</b> <code>${DOMAIN}</code>
+
+<i>User sudah bisa login kembali.</i>
+"
+
+    curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+        -F "chat_id=${CHAT_ID}" \
+        -F "disable_web_page_preview=true" \
+        -F "parse_mode=html" \
+        -F "text=${PESAN}" >/dev/null 2>&1
+fi

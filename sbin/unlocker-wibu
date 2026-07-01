@@ -1,0 +1,21 @@
+#!/bin/bash
+# ==========================================
+# WIBU TUNNELING - unlocker-wibu (Improved v2)
+# Auto Unlock with Telegram Notification
+# ==========================================
+
+source /etc/wibutunnel/bot.conf 2>/dev/null
+
+DB="/etc/wibutunnel/locked_users.db"
+[[ ! -f "$DB" ]] && exit 0
+
+now=$(date +%s)
+
+while read -r line; do
+    user=$(echo "$line" | cut -d: -f1)
+    unlock_time=$(echo "$line" | cut -d: -f3)
+    
+    if [[ "$unlock_time" != "0" && "$now" -ge "$unlock_time" ]]; then
+        /usr/local/bin/unlock-user "$user" "AUTO" >/dev/null 2>&1
+    fi
+done < "$DB"

@@ -1,0 +1,67 @@
+#!/bin/bash
+# ==========================================
+# WIBU TUNNELING - lock-user (Improved v2)
+# Supports reason + Telegram Notification
+# ==========================================
+
+source /etc/wibutunnel/bot.conf 2>/dev/null
+
+user=$1
+duration=$2
+reason=$3   # IP_LIMIT atau QUOTA
+
+[[ -z "$user" ]] && exit 1
+
+# Lock di Xray config
+jq '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + ["'$user'"] | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+
+now=$(date +%s)
+if [[ -n "$duration" && "$duration" != "0" ]]; then
+    unlock_time=$((now + (duration * 60)))
+else
+    unlock_time=0
+fi
+
+# Update database lock
+sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
+echo "$user:$now:$unlock_time:$reason" >> /etc/wibutunnel/locked_users.db
+
+systemctl restart xray >/dev/null 2>&1
+
+# === TELEGRAM NOTIFICATION ===
+if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
+    DOMAIN=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
+    WAKTU=$(date '+%d %b %Y %H:%M WIB')
+    
+    if [[ "$reason" == "IP_LIMIT" ]]; then
+        ALASAN="Melebihi Limit IP"
+    elif [[ "$reason" == "QUOTA" ]]; then
+        ALASAN="Kuota Habis"
+    else
+        ALASAN="Manual Lock"
+    fi
+    
+    if [[ "$duration" == "0" ]]; then
+        DURASI_TXT="Permanen (sampai di-unlock manual)"
+    else
+        DURASI_TXT="${duration} menit"
+    fi
+
+    PESAN="
+🔒 <b>USER DIKUNCI OTOMATIS</b>
+
+<b>User     :</b> <code>${user}</code>
+<b>Alasan   :</b> ${ALASAN}
+<b>Durasi   :</b> ${DURASI_TXT}
+<b>Waktu    :</b> ${WAKTU}
+<b>Domain   :</b> <code>${DOMAIN}</code>
+
+<i>Account akan otomatis dibuka setelah durasi habis.</i>
+"
+
+    curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+        -F "chat_id=${CHAT_ID}" \
+        -F "disable_web_page_preview=true" \
+        -F "parse_mode=html" \
+        -F "text=${PESAN}" >/dev/null 2>&1
+fi

@@ -1,0 +1,51 @@
+#!/bin/bash
+# ==========================================
+# WIBU TUNNELING - algojo-kuota (v4.0 RECOVERY)
+# ==========================================
+source /etc/wibutunnel/bot.conf 2>/dev/null
+DB_BW="/etc/wibutunnel/limit_bw.db"
+DB_USAGE="/etc/wibutunnel/user_usage.db"
+DB_LOCK="/etc/wibutunnel/locked_users.db"
+
+[[ ! -f "$DB_BW" ]] && exit 0
+touch "$DB_USAGE"
+
+xray api statsquery --server=127.0.0.1:10085 2>/dev/null | jq -r '.stat[]? | "\(.name) \(.value)"' | grep 'downlink' | grep -v 'dummy' | grep -v 'api' | awk -F'>>>' '{print $2, $NF}' | awk '{print $1, $NF}' > /etc/wibutunnel/tmp/xray_quota_raw.txt
+
+while read -r user current_api; do
+    [[ -z "$user" || -z "$current_api" ]] && continue
+    data_lama=$(grep "^${user}:" "$DB_USAGE")
+    if [[ -n "$data_lama" ]]; then
+        accumulated=$(echo "$data_lama" | cut -d: -f2)
+        last_api=$(echo "$data_lama" | cut -d: -f3)
+    else
+        accumulated=0; last_api=0
+    fi
+    if (( current_api < last_api )); then delta=$current_api; else delta=$(( current_api - last_api )); fi
+    new_accumulated=$(( accumulated + delta ))
+    sed -i "/^${user}:/d" "$DB_USAGE"
+    echo "${user}:${new_accumulated}:${current_api}" >> "$DB_USAGE"
+done < /etc/wibutunnel/tmp/xray_quota_raw.txt
+
+while read -r line; do
+    user=$(echo "$line" | cut -d: -f1)
+    limit_gb=$(echo "$line" | cut -d: -f2)
+    [[ "$limit_gb" == "0" || -z "$limit_gb" ]] && continue
+    
+    total_bytes=$(grep "^${user}:" "$DB_USAGE" | cut -d: -f2)
+    [[ -z "$total_bytes" ]] && total_bytes=0
+    usage_gb=$(echo "scale=2; $total_bytes / 1073741824" | bc)
+    
+    if (( $(echo "$usage_gb >= $limit_gb" | bc -l) )); then
+        if ! grep -q "^$user:" "$DB_LOCK"; then
+            proto="UNKNOWN"
+            if grep -q "^${user}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
+            elif grep -q "^${user}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
+            elif grep -q "^${user}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; fi
+            
+            # Durasi 0 = Mengunci permanen dan memindahkan ke Recovery Center
+            /usr/local/bin/lock-user "$user" "0" "QUOTA" "$proto" "${limit_gb}GB" "${usage_gb}GB" >/dev/null 2>&1
+        fi
+    fi
+done < "$DB_BW"
+rm -f /etc/wibutunnel/tmp/xray_quota_raw.txt

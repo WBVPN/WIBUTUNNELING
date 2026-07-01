@@ -1,0 +1,70 @@
+#!/bin/bash
+# ==========================================
+# WIBU TUNNELING - algojo-wibu (v5.0 — awk optimization)
+# ==========================================
+source /etc/wibutunnel/bot.conf 2>/dev/null
+DB_IP="/etc/wibutunnel/limit_ip.db"
+DB_LOCK="/etc/wibutunnel/locked_users.db"
+LOCK_CONF="/etc/wibutunnel/lock.conf"
+
+LOCK_DURATION=15
+if [ -f "$LOCK_CONF" ]; then source "$LOCK_CONF"; fi
+[[ ! -f "$DB_IP" ]] && exit 0
+
+TIMESTAMP=$(date +"%Y/%m/%d %H:%M")
+AGO1=$(date -d "1 minute ago" +"%Y/%m/%d %H:%M")
+AGO2=$(date -d "2 minutes ago" +"%Y/%m/%d %H:%M")
+AGO3=$(date -d "3 minutes ago" +"%Y/%m/%d %H:%M")
+
+# Single awk pass: extract email + unique IPs per user from recent accepted connections
+awk -v TS="$TIMESTAMP" -v A1="$AGO1" -v A2="$AGO2" -v A3="$AGO3" '
+BEGIN { FS=" "; split("", ipmap) }
+$0 !~ /accepted/ { next }
+{ ts = $1 " " $2 }
+ts != TS && ts != A1 && ts != A2 && ts != A3 { next }
+{
+    # Extract IP
+    for (i=1; i<=NF; i++) {
+        if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && $i != "127.0.0.1") {
+            ip = $i
+            break
+        }
+    }
+    if (ip == "") next
+
+    # Extract email: everything inside the last [email] field
+    email = ""
+    for (i=1; i<=NF; i++) {
+        if ($i ~ /^\[.*@.*\]$/) {
+            e = substr($i, 2, length($i)-2)
+            if (e !~ /^dummy|api/) email = e
+            break
+        }
+    }
+    if (email == "") next
+
+    key = email SUBSEP ip
+    if (!(key in seen)) {
+        seen[key] = 1
+        ips[email] = ips[email] (ips[email] ? " " : "") ip
+    }
+}
+END {
+    for (e in ips) print e, ips[e]
+}
+' /var/log/xray/access.log | while read -r email ip_list; do
+    max_ip=$(grep "^${email}:" "$DB_IP" 2>/dev/null | cut -d: -f2)
+    [[ "$max_ip" == "0" || -z "$max_ip" ]] && continue
+
+    ip_count=$(echo "$ip_list" | wc -w)
+    if [[ $ip_count -gt $max_ip ]]; then
+        if ! grep -q "^${email}:" "$DB_LOCK" 2>/dev/null; then
+            proto="UNKNOWN"
+            grep -q "^${email}:" /etc/xray/vless_exp.conf 2>/dev/null && proto="VLESS"
+            grep -q "^${email}:" /etc/xray/vmess_exp.conf 2>/dev/null && proto="VMESS"
+            grep -q "^${email}:" /etc/xray/trojan_exp.conf 2>/dev/null && proto="TROJAN"
+
+            /usr/local/bin/lock-user "$email" "$LOCK_DURATION" "IP_LIMIT" "$proto" "${max_ip} IP" "${ip_count} IP" >/dev/null 2>&1
+        fi
+    fi
+done
