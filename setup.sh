@@ -187,7 +187,7 @@ if ! grep -q "tmpfs /tmp" /etc/fstab; then
 fi
 
 if ! grep -q "tmpfs /var/log/xray" /etc/fstab; then
-    echo "tmpfs /var/log/xray tmpfs defaults,nosuid,nodev,noexec,mode=0755,size=30M 0 0" >> /etc/fstab
+    echo "tmpfs /var/log/xray tmpfs defaults,nosuid,nodev,noexec,mode=1777,size=30M 0 0" >> /etc/fstab
     mkdir -p /var/log/xray
     mount /var/log/xray 2>/dev/null || true
 fi
