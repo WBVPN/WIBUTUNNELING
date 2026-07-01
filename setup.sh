@@ -20,7 +20,7 @@ MYIP=$(curl -sS --max-time 5 ipv4.icanhazip.com)
 clear
 echo -e "\e[1;36m[+] Memeriksa Lisensi Script...\e[0m"
 
-LINK_IZIN="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
+LINK_IZIN="https://raw.githubusercontent.com/WBVPN/WIBUTUNNELING/main/izin.txt"
 GET_DATA=$(curl -sS --max-time 10 $LINK_IZIN | grep -w "$MYIP")
 
 CLIENT_NAME=$(echo "$GET_DATA" | awk '{print $2}' | tr -d '\r' | tr -d ' ')
@@ -61,7 +61,7 @@ else
 fi
 
 GITHUB_USER="WBVPN"
-REPO_NAME="wibutunnel"
+REPO_NAME="WIBUTUNNELING"
 GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
 
 clear
