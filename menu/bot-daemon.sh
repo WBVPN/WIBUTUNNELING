@@ -11,7 +11,7 @@ touch $OFFSET_FILE
 
 # Utility function to send message
 send_msg() {
-    local text="$1"
+    local text=$(echo -e "$1")
     curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
         -F "chat_id=${CHAT_ID}" -F "parse_mode=html" -F "text=${text}" >/dev/null 2>&1
 }
