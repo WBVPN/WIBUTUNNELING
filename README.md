@@ -1,78 +1,55 @@
-# WIBU TUNNELING v3.3 GACOR (Optimized)
+# WIBU TUNNELING v4.0 KURUMI (FINAL PERFECT) 🦋
 
-**Multi-Protocol VPN Script** berbasis **Xray Core** + **HAProxy** dengan fitur lengkap untuk reseller/admin VPS.
-
-## ✨ Fitur Utama
-
-- **Multi Protocol**: VLESS, VMESS, Trojan (WS + gRPC + NTLS)
-- **Limit System**: Limit IP + Limit Kuota (Real-time + Auto Lock)
-- **Auto Lock**: Otomatis mengunci user yang melanggar limit
-- **Smart Backup & Restore**: Via Telegram (File ID / Path / URL)
-- **Traffic Monitor**: Real-time IP & Bandwidth monitoring
-- **Auto Expire**: Hapus user otomatis + notifikasi Telegram
-- **License System**: Proteksi script dengan IP + Expired date (**Centralized**)
-- **Optimized**: Kernel tuning, QoS, Anti-Torrent, BBR
-
-## 🔥 What's New in v3.3 GACOR
-
-Versi ini sudah **fully optimized**:
-
-- ✅ License check **terpusat** di `common.sh` (tidak ada duplikasi lagi)
-- ✅ Semua menu script lebih bersih dan ringan
-- ✅ Lebih mudah di-maintain
-- ✅ Performa lebih baik
-
-## 📦 Struktur Project
-
-```
-WIBUTUNNEL-main/
-├── common.sh              # Library terpusat (License Check + Colors)
-├── setup.sh               # Installer utama
-├── config.json
-├── haproxy.json
-├── izin.txt
-├── README.md
-└── menu/
-    ├── menu.sh
-    ├── m-vless.sh
-    ├── m-vmess.sh
-    ├── m-trojan.sh
-    ├── cek-trafik.sh
-    ├── m-setting.sh
-    ├── m-backup.sh
-    ├── xp.sh
-    ├── menu-lock.sh
-    └── menu-unlock.sh
-```
-
-## 🚀 Instalasi
-
-```bash
-wget https://raw.githubusercontent.com/WBVPN/wibutunnel/main/setup.sh
-chmod +x setup.sh
-./setup.sh
-```
-
-## 📋 Menu Utama
-
-| No | Menu                     |
-|----|--------------------------|
-| 1  | Kelola VLESS             |
-| 2  | Kelola VMESS             |
-| 3  | Kelola TROJAN            |
-| 4  | Lock User                |
-| 5  | Unlock User              |
-| 6  | Cek Trafik & IP Monitor  |
-| 7  | Setting Server           |
-| 8  | Backup & Restore         |
-| 0  | Exit                     |
-
-## 📞 Support
-
-- WhatsApp: **087757315408**
-- Telegram: **t.me/wibuvpn**
+**Ultimate Xray VPN Auto Script** dengan arsitektur paling ringan dan mutakhir. Dibangun khusus untuk memberikan performa maksimal pada VPS dengan perlindungan keamanan, manajemen memori tingkat lanjut, dan sistem limit otomatis (Algojo).
 
 ---
 
-**Developed by WIBU TUNNELING Team**  
-**Versi: v3.3 GACOR Optimized** (June 2026)
+## ✨ Fitur Unggulan (What's New in v4.0)
+
+🚀 **100% Zero Disk I/O (RAM Disk Logging)**
+Tidak ada lagi HDD/SSD yang rusak! Seluruh aktivitas *log* koneksi Xray kini diproses murni di atas awan (RAM / `tmpfs`), menjadikan VPS **Super Snappy** dan kebal terhadap antrean baca-tulis (I/O Wait).
+
+🧠 **Otak Algojo Generasi Baru (Awk Engine)**
+Script pengawas Limit IP (Multi-Login) kini beroperasi menggunakan `awk` tingkat rendah. Kecepatannya membedah ribuan *log* dalam **1 milidetik** tanpa membebani CPU, serta akurat memblokir akun meski menggunakan nama tanpa simbol `@`.
+
+🛡️ **Anti URL-Encoding (100% Koneksi Sukses)**
+Frontend HAProxy kini kebal terhadap eror akibat *copy-paste* link klien (seperti spasi atau karakter `%2F`). Apapun linknya, routing akan selalu sampai ke *backend* tanpa error 503.
+
+🔄 **Sistem Recovery Cerdas**
+Klien yang limit atau expired **TIDAK AKAN DIHAPUS**. Mereka otomatis dimasukkan ke "Ruang Recovery" (Akses Diblokir). Saat klien memperpanjang sewa, fitur **Unlock** memungkinkan klien langsung konek tanpa perlu repot ganti link di aplikasinya!
+
+## 📦 Protokol yang Didukung
+- **VLESS** (WS TLS, WS Non-TLS, gRPC)
+- **VMESS** (WS TLS, WS Non-TLS, gRPC)
+- **TROJAN** (WS TLS, gRPC)
+
+---
+
+## ⚡ Instalasi Cepat (1-Click Install)
+
+Cukup *copy-paste* perintah berikut di terminal VPS (Ubuntu/Debian) Anda yang masih *fresh*:
+
+```bash
+apt update -y && apt install -y curl wget && bash <(curl -s https://raw.githubusercontent.com/WBVPN/wibutunnel/main/setup.sh)
+```
+
+## 📋 Daftar Menu
+
+| Menu Utama | Sub-Fitur |
+| :--- | :--- |
+| **Kelola VLESS** | Create, Delete, Renew, Trial, Cek Kuota |
+| **Kelola VMESS** | Create, Delete, Renew, Trial, Cek Kuota |
+| **Kelola TROJAN** | Create, Delete, Renew, Trial, Cek Kuota |
+| **Recovery Center** | Lock Akun, Unlock Akun, Hapus Permanen |
+| **Cek Trafik** | Monitor Real-Time IP dan Bandwidth |
+| **Sistem Panel** | Backup & Restore via Telegram (File ID / Path) |
+
+---
+
+## 📞 Support & Kontak
+
+- **WhatsApp** : [087757315408](https://wa.me/6287757315408)
+- **Telegram** : [t.me/wibuvpn](https://t.me/wibuvpn)
+
+> **Developed by WIBU TUNNELING Team**  
+> **Versi:** v4.0 KURUMI (Juli 2026)
