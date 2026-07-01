@@ -653,22 +653,44 @@ done
 WDEOF
 chmod +x /usr/local/bin/wibu-daemon
 
-cat <<EOF > /etc/systemd/system/wibu-daemon.service
+cat << 'EOF' > /etc/systemd/system/wibu-daemon.service
 [Unit]
 Description=Wibu Tunneling Real-Time Algojo Daemon
 After=network.target
+
 [Service]
-Type=simple
 ExecStart=/usr/local/bin/wibu-daemon
 Restart=always
 RestartSec=3
+
 [Install]
 WantedBy=multi-user.target
 EOF
 
+cat << 'EOF' > /etc/systemd/system/wibutunnel-bot.service
+[Unit]
+Description=Wibutunnel Telegram Bot Daemon
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/bot-daemon
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+chmod +x /usr/local/bin/wibu-daemon
+chmod +x /usr/local/sbin/algojo-wibu 2>/dev/null || true
+chmod +x /usr/local/sbin/algojo-kuota 2>/dev/null || true
+chmod +x /usr/local/bin/bot-daemon
+
 systemctl daemon-reload
 systemctl enable wibu-daemon >/dev/null 2>&1
-systemctl start wibu-daemon >/dev/null 2>&1
+systemctl restart wibu-daemon
+
+systemctl enable wibutunnel-bot >/dev/null 2>&1
+systemctl restart wibutunnel-bot
 
 # Logrotate & Cron
 cat << 'LREOF' > /etc/logrotate.d/xray
