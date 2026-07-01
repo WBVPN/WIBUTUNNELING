@@ -285,10 +285,11 @@ backup_vps() {
     tar -czf "$backup_file" /etc/xray /etc/wibutunnel /usr/local/etc/xray >/dev/null 2>&1
     
     if [[ -f "$backup_file" ]]; then
+        local caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>$(date +%Y-%m-%d %H:%M:%S)</code>\n\n<i>Simpan file ini baik-baik. File tar.gz bisa diekstrak di VPS baru.</i>")
         curl -s --max-time 60 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
             -F "chat_id=${target_id}" \
             -F "document=@${backup_file}" \
-            -F "caption=📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>$(date +%Y-%m-%d %H:%M:%S)</code>\n\n<i>Simpan file ini baik-baik. File tar.gz bisa diekstrak di VPS baru.</i>" \
+            -F "caption=${caption}" \
             -F "parse_mode=html" >/dev/null 2>&1
         rm -f "$backup_file"
     else
