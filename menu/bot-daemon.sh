@@ -222,7 +222,7 @@ list_account() {
     msg+="\n🔹 <b>VLESS:</b>\n"
     local c_vless=0
     while IFS=":" read -r usr exp; do
-        [[ -z "$usr" ]] && continue
+        [[ -z "$usr" || "$usr" == dummy* ]] && continue
         msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
         ((c_vless++))
     done < /etc/xray/vless_exp.conf
@@ -231,7 +231,7 @@ list_account() {
     msg+="\n🔹 <b>VMESS:</b>\n"
     local c_vmess=0
     while IFS=":" read -r usr exp; do
-        [[ -z "$usr" ]] && continue
+        [[ -z "$usr" || "$usr" == dummy* ]] && continue
         msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
         ((c_vmess++))
     done < /etc/xray/vmess_exp.conf
@@ -240,7 +240,7 @@ list_account() {
     msg+="\n🔹 <b>TROJAN:</b>\n"
     local c_trojan=0
     while IFS=":" read -r usr exp; do
-        [[ -z "$usr" ]] && continue
+        [[ -z "$usr" || "$usr" == dummy* ]] && continue
         msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
         ((c_trojan++))
     done < /etc/xray/trojan_exp.conf
