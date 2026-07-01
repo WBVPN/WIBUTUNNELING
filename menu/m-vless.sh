@@ -273,28 +273,21 @@ delete_user() {
     user="$SELECTED_USER"
 
     if [[ "$user" == *"trial"* ]]; then
-        jq --arg user "$user" '
-            .inbounds[1].settings.clients |= map(select(.email != $user)) |
-            .inbounds[2].settings.clients |= map(select(.email != $user)) |
-            .inbounds[3].settings.clients |= map(select(.email != $user)) |
-            (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $user))
-        ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
-
-        sed -i "/^${user}:/d" "$EXP_FILE"
-        sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
-        sed -i "/^${user}:/d" "$DB_LOCK" 2>/dev/null; sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
-        systemctl restart xray >/dev/null 2>&1
         echo -e "\n${GREEN}Akun Trial '$user' berhasil dimusnahkan permanen!${NC}"
     else
-        jq --arg user "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
-        
-        now=$(date +%s)
-        sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-        echo "$user:$now:0:MANUAL_DEL" >> /etc/wibutunnel/locked_users.db
-        systemctl restart xray >/dev/null 2>&1
-        echo -e "\n${GREEN}Akun Normal '$user' dipindahkan ke ruang Recovery!${NC}"
-        echo -e "${YELLOW}(Data limit disimpan agar bisa di-reactivate kelak)${NC}"
+        echo -e "\n${GREEN}Akun '$user' berhasil dimusnahkan permanen!${NC}"
     fi
+    jq --arg user "$user" '
+        .inbounds[1].settings.clients |= map(select(.email != $user)) |
+        .inbounds[2].settings.clients |= map(select(.email != $user)) |
+        .inbounds[3].settings.clients |= map(select(.email != $user)) |
+        (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $user))
+    ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+
+    sed -i "/^${user}:/d" "$EXP_FILE"
+    sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
+    sed -i "/^${user}:/d" "$DB_LOCK" 2>/dev/null; sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+    systemctl restart xray >/dev/null 2>&1
     echo ""; read -p "Tekan Enter..." dummy
 }
 

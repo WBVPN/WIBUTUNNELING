@@ -73,7 +73,37 @@ if [ "$total" -eq 0 ]; then
 fi
 
 echo -e "${LINE}\n ${CYAN}Total: ${WHITE}$total user${NC}\n${LINE}"
+echo -e " Input type : ${GREEN}deleteallusers${NC}\n              for Delete All Users RECOVERY\n${LINE}"
 read -p " Pilih akun [1-$total] / [nama] / [0] Batal: " target
+
+if [[ "$target" == "deleteallusers" ]]; then
+    for user in "${USER_NAMES[@]}"; do
+        [[ -z "$user" ]] && continue
+        jq --arg u "$user" '
+            .inbounds[1].settings.clients |= map(select(.email != $u)) |
+            .inbounds[2].settings.clients |= map(select(.email != $u)) |
+            .inbounds[3].settings.clients |= map(select(.email != $u)) |
+            .inbounds[4].settings.clients |= map(select(.email != $u)) |
+            .inbounds[5].settings.clients |= map(select(.email != $u)) |
+            .inbounds[6].settings.clients |= map(select(.email != $u)) |
+            .inbounds[7].settings.clients |= map(select(.email != $u)) |
+            .inbounds[8].settings.clients |= map(select(.email != $u)) |
+            (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))
+        ' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
+        sed -i "/^${user}:/d" /etc/xray/vless_exp.conf
+        sed -i "/^${user}:/d" /etc/xray/vmess_exp.conf
+        sed -i "/^${user}:/d" /etc/xray/trojan_exp.conf
+        sed -i "/^${user}:/d" /etc/wibutunnel/limit_ip.db 2>/dev/null
+        sed -i "/^${user}:/d" /etc/wibutunnel/limit_bw.db 2>/dev/null
+        sed -i "/^${user}:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
+        sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+    done
+    > /etc/wibutunnel/locked_users.db
+    systemctl restart xray >/dev/null 2>&1
+    echo -e "\n ${GREEN}SEMUA AKUN RECOVERY TELAH DIMUSNAHKAN PERMANEN!${NC}"
+    read -p " Tekan Enter..." dummy
+    [[ -n "$FILTER_PROTO" ]] && exec "m-${proto_lower}" || exec menu
+fi
 
 [[ -z "$target" || "$target" == "0" ]] && { [[ -n "$FILTER_PROTO" ]] && exec "m-${proto_lower}" || exec menu; }
 if [[ "$target" =~ ^[0-9]+$ ]] && [ "$target" -ge 1 ] && [ "$target" -le "$total" ]; then user="${USER_NAMES[$target]}"
