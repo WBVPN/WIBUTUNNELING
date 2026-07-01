@@ -85,23 +85,66 @@ create_account() {
     [[ "$limit_ip" -eq 0 ]] && limit_ip="Bebas" || limit_ip="${limit_ip} IP"
     [[ "$limit_bw" -eq 0 ]] && limit_bw="Unlimited" || limit_bw="${limit_bw} GB"
 
-    local pesan="━━━━━━━━━━━━━━━━━━━━\n"
-    pesan+=" ✅ <b>${proto} ACCOUNT CREATED</b>\n"
-    pesan+="━━━━━━━━━━━━━━━━━━━━\n"
-    pesan+=" <b>User     :</b> <code>${user}</code>\n"
-    pesan+=" <b>Domain   :</b> <code>${domain}</code>\n"
-    pesan+=" <b>Expired  :</b> <code>${tampil_exp}</code>\n"
-    pesan+=" <b>Limit IP :</b> ${limit_ip}\n"
-    pesan+=" <b>Limit BW :</b> ${limit_bw}\n"
-    pesan+="━━━━━━━━━━━━━━━━━━━━\n\n"
-    pesan+="🌐 <b>Link TLS (WS):</b>\n<code>${link1}</code>\n\n"
-    if [[ -n "$link3" ]]; then
-        pesan+="🌐 <b>Link NTLS (WS):</b>\n<code>${link2}</code>\n\n"
-        pesan+="🌐 <b>Link GRPC:</b>\n<code>${link3}</code>\n"
-    else
-        pesan+="🌐 <b>Link GRPC:</b>\n<code>${link2}</code>\n"
+    local CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null)
+    local ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
+    [[ -z "$CITY" ]] && CITY="Unknown"; [[ -z "$ISP" ]] && ISP="Unknown"
+
+    local THICKLINE="━━━━━━━━━━━━━━━━━━━━━━━━━"
+    local pesan="${THICKLINE}\n"
+    pesan+="               <b>${proto}</b>\n"
+    pesan+="${THICKLINE}\n"
+    pesan+="<b>Remarks        :</b> <code>${user}</code>\n"
+    pesan+="<b>CITY           :</b> <code>${CITY}</code>\n"
+    pesan+="<b>ISP            :</b> <code>${ISP}</code>\n"
+    pesan+="<b>Domain         :</b> <code>${domain}</code>\n"
+    pesan+="<b>Limit IP       :</b> <code>${limit_ip}</code>\n"
+    pesan+="<b>Limit Kuota    :</b> <code>${limit_bw}</code>\n"
+    pesan+="<b>Port TLS       :</b> <code>443</code>\n"
+    
+    if [[ "$proto" != "TROJAN" ]]; then
+        pesan+="<b>Port none TLS  :</b> <code>80</code>\n"
     fi
-    pesan+="━━━━━━━━━━━━━━━━━━━━"
+    
+    if [[ "$proto" == "VMESS" ]]; then
+        pesan+="<b>id             :</b> <code>${uuid}</code>\n"
+        pesan+="<b>Network        :</b> <code>ws,grpc</code>\n"
+        pesan+="<b>Path ws        :</b> <code>/vmess</code>\n"
+        pesan+="<b>serviceName    :</b> <code>vmess</code>\n"
+    elif [[ "$proto" == "VLESS" ]]; then
+        pesan+="<b>id             :</b> <code>${uuid}</code>\n"
+        pesan+="<b>Encryption     :</b> <code>none</code>\n"
+        pesan+="<b>Network        :</b> <code>ws,grpc</code>\n"
+        pesan+="<b>Path ws        :</b> <code>/vless</code>\n"
+        pesan+="<b>serviceName    :</b> <code>vless</code>\n"
+    elif [[ "$proto" == "TROJAN" ]]; then
+        pesan+="<b>Password       :</b> <code>${uuid}</code>\n"
+        pesan+="<b>Network        :</b> <code>ws,grpc</code>\n"
+        pesan+="<b>Path ws        :</b> <code>/trojan</code>\n"
+        pesan+="<b>serviceName    :</b> <code>trojan</code>\n"
+    fi
+
+    pesan+="<b>Expired On     :</b> <code>${tampil_exp}</code>\n"
+    pesan+="${THICKLINE}\n"
+    pesan+="            <b>${proto} WS TLS</b>\n"
+    pesan+="${THICKLINE}\n"
+    pesan+="<code>${link1}</code>\n"
+
+    if [[ "$proto" != "TROJAN" ]]; then
+        pesan+="${THICKLINE}\n"
+        pesan+="          <b>${proto} WS NO TLS</b>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="<code>${link2}</code>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="             <b>${proto} GRPC</b>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="<code>${link3}</code>\n"
+    else
+        pesan+="${THICKLINE}\n"
+        pesan+="             <b>${proto} GRPC</b>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="<code>${link2}</code>\n"
+    fi
+    pesan+="${THICKLINE}"
     
     send_msg "$pesan"
 }
