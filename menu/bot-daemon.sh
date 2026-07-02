@@ -521,6 +521,7 @@ while true; do
                             MSG+="├ <code>/lock [user]</code> (Kunci Akun)\n"
                             MSG+="├ <code>/unlock [user]</code> (Buka Kunci)\n"
                             MSG+="├ <code>/cek_trafik</code> (Top Pemakaian)\n"
+                            MSG+="├ <code>/cek_login</code> (User Online)\n"
                             MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
                             MSG+="━━━━━━━━━━━━━━━━━━━━\n"
                             MSG+="<i>Contoh Normal: /vless budi 30 2 10</i>\n"
@@ -667,6 +668,66 @@ while true; do
                                 send_msg "$TRF_MSG"
                             else
                                 send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
+                            fi
+                            ;;
+                        /cek_login)
+                            LOG_FILE="/var/log/xray/access.log"
+                            if [[ ! -s "$LOG_FILE" ]]; then
+                                send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"
+                                continue
+                            fi
+                            
+                            TIMESTAMP=$(date +"%Y/%m/%d %H:%M")
+                            AGO1=$(date -d "1 minute ago" +"%Y/%m/%d %H:%M")
+                            AGO2=$(date -d "2 minutes ago" +"%Y/%m/%d %H:%M")
+                            AGO3=$(date -d "3 minutes ago" +"%Y/%m/%d %H:%M")
+                            
+                            LOGIN_DATA=$(awk -v TS="$TIMESTAMP" -v A1="$AGO1" -v A2="$AGO2" -v A3="$AGO3" '
+                            BEGIN { split("", ips) }
+                            $0 !~ /accepted/ { next }
+                            { ts = $1 " " $2 }
+                            ts != TS && ts != A1 && ts != A2 && ts != A3 { next }
+                            {
+                                ip = ""; email = ""
+                                for (i=1; i<=NF; i++) {
+                                    if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$/ && $i !~ /^127\.0\.0\.1/) {
+                                        ip = $i; sub(/:.*/, "", ip)
+                                        break
+                                    }
+                                }
+                                for (i=1; i<=NF; i++) {
+                                    if ($i == "email:" && i<NF) {
+                                        email = $(i+1)
+                                        sub(/\]/, "", email)
+                                        break
+                                    }
+                                }
+                                if (ip == "" || email == "" || email ~ /^dummy|api/) next
+                                key = email SUBSEP ip
+                                if (!(key in seen)) {
+                                    seen[key] = 1
+                                    ips[email] = ips[email] (ips[email] ? ", " : "") ip
+                                    counts[email]++
+                                }
+                            }
+                            END {
+                                for (e in ips) print e "|" counts[e] "|" ips[e]
+                            }' "$LOG_FILE" 2>/dev/null)
+                            
+                            if [[ -z "$LOGIN_DATA" ]]; then
+                                send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
+                            else
+                                LOG_MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                                while IFS="|" read -r usr count iplist; do
+                                    if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
+                                    elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
+                                    elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
+                                    else proto="DELETED"
+                                    fi
+                                    LOG_MSG+="👤 <code>${usr}</code> [${proto}]\n└ 🌐 IP: ${iplist} (${count} Login)\n\n"
+                                done <<< "$LOGIN_DATA"
+                                LOG_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                                send_msg "$LOG_MSG"
                             fi
                             ;;
                     esac
