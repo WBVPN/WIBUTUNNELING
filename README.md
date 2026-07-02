@@ -18,6 +18,12 @@ Frontend HAProxy kini kebal terhadap eror akibat *copy-paste* link klien (sepert
 🔄 **Sistem Recovery Cerdas**
 Klien yang limit atau expired **TIDAK AKAN DIHAPUS**. Mereka otomatis dimasukkan ke "Ruang Recovery" (Akses Diblokir). Saat klien memperpanjang sewa, fitur **Unlock** memungkinkan klien langsung konek tanpa perlu repot ganti link di aplikasinya!
 
+🤖 **Bot Telegram Super Admin**
+Tidak perlu repot buka aplikasi SSH/Termius! Bos bisa Create, Renew, Hapus, Lock, Cek Trafik, dan Cek Real-time Login langsung dari *chat* Telegram dengan *layout* premium nan elegan.
+
+🚫 **Auto IPv6 Disabler**
+Sudah terintegrasi fitur pemusnah IPv6 di inti OS (via sysctl & GRUB). VPS yang baru diinstal dijamin **kebal dari error `apt update`** dan masalah *routing* Xray yang disebabkan oleh konflik IPv6!
+
 ## 📦 Protokol yang Didukung
 - **VLESS** (WS TLS, WS Non-TLS, gRPC)
 - **VMESS** (WS TLS, WS Non-TLS, gRPC)
