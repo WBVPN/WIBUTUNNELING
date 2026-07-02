@@ -33,10 +33,10 @@ Sudah terintegrasi fitur pemusnah IPv6 di inti OS (via sysctl & GRUB). VPS yang 
 
 ## ⚡ Instalasi Cepat (1-Click Install)
 
-Cukup *copy-paste* perintah berikut di terminal VPS (Ubuntu/Debian) Anda yang masih *fresh*:
+Cukup *copy-paste* perintah berikut di terminal VPS (Ubuntu/Debian) Anda yang masih **FRESH** (Baru di-Rebuild):
 
 ```bash
-apt update -y && apt install -y curl wget && bash <(curl -s https://raw.githubusercontent.com/WBVPN/wibutunnel/main/setup.sh)
+apt update -y && apt install -y curl wget && bash <(curl -s https://raw.githubusercontent.com/WBVPN/WIBUTUNNELING/main/setup.sh)
 ```
 
 ## 📋 Daftar Menu
