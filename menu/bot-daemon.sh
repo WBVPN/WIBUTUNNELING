@@ -685,7 +685,7 @@ while true; do
                             LOGIN_DATA=$(awk -v TS="$TIMESTAMP" -v A1="$AGO1" -v A2="$AGO2" -v A3="$AGO3" '
                             BEGIN { split("", ips) }
                             $0 !~ /accepted/ { next }
-                            { ts = $1 " " $2 }
+                            { ts = $1 " " substr($2, 1, 5) }
                             ts != TS && ts != A1 && ts != A2 && ts != A3 { next }
                             {
                                 ip = ""; email = ""
