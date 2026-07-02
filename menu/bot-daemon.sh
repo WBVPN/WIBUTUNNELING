@@ -535,9 +535,9 @@ while true; do
                                 sed -i "/^${ARG2}$/d" /etc/wibutunnel/bot_admins.db 2>/dev/null
                                 send_msg "🗑️ <b>Berhasil!</b>\nID Telegram <code>$ARG2</code> telah dihapus dari admin bot."
                             elif [[ "$ARG1" == "list" ]]; then
-                                local adm_msg="📋 <b>Daftar Admin Bot:</b>\n1. <code>$CHAT_ID</code> (Utama)\n"
+                                adm_msg="📋 <b>Daftar Admin Bot:</b>\n1. <code>$CHAT_ID</code> (Utama)\n"
                                 if [[ -f /etc/wibutunnel/bot_admins.db ]]; then
-                                    local i=2
+                                    i=2
                                     while read -r adm; do
                                         [[ -z "$adm" ]] && continue
                                         adm_msg+="${i}. <code>$adm</code>\n"
