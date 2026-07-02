@@ -226,8 +226,24 @@ iptables -A FORWARD -m string --algo bm --string "announce.php?passkey=" -j DROP
 iptables -A FORWARD -m string --algo bm --string "torrent" -j DROP
 iptables -A FORWARD -m string --algo bm --string "announce" -j DROP
 iptables -A FORWARD -m string --algo bm --string "info_hash" -j DROP
-iptables-save > /etc/iptables/rules.v4
 
+# Anti-DDoS & Syn-Flood Protection (Ultra Lightweight)
+echo -e "\e[1;36m[+] Memasang Anti-DDoS & SSH Brute-Force Protection...\e[0m"
+# 1. Drop paket cacat / malformed packets
+iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
+iptables -A INPUT -p tcp --tcp-flags ALL NONE -j DROP
+iptables -A INPUT -p tcp --tcp-flags ALL ALL -j DROP
+# 2. Limit Ping (Cegah Ping of Death)
+iptables -A INPUT -p icmp -m limit --limit 1/s --limit-burst 1 -j ACCEPT
+iptables -A INPUT -p icmp -j DROP
+# 3. Cegah SSH Brute-Force (Port 22) - Banned jika >10 percobaan dalam 60 detik
+iptables -I INPUT -p tcp --dport 22 -m state --state NEW -m recent --set
+iptables -I INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 10 -j DROP
+# 4. Batasi Max Koneksi per IP (Cegah Layer 4/7 Flood ke Port Proxy)
+iptables -I INPUT -p tcp --dport 443 -m connlimit --connlimit-above 100 -j REJECT --reject-with tcp-reset
+iptables -I INPUT -p tcp --dport 80 -m connlimit --connlimit-above 100 -j REJECT --reject-with tcp-reset
+
+iptables-save > /etc/iptables/rules.v4
 # QoS
 cat > /usr/local/sbin/network-tune.sh << 'EOF'
 #!/bin/bash
