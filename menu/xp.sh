@@ -106,13 +106,7 @@ Expired On - ${exp_date}
                         curl -s --max-time 8 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
                             -F "chat_id=${CHAT_ID}" -F "parse_mode=html" -F "text=${PESAN}" >/dev/null 2>&1
                             
-                        if [[ -f /etc/wibutunnel/bot_admins.db ]]; then
-                            while read -r adm; do
-                                [[ -z "$adm" ]] && continue
-                                curl -s --max-time 8 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-                                    -F "chat_id=${adm}" -F "parse_mode=html" -F "text=${PESAN}" >/dev/null 2>&1
-                            done < /etc/wibutunnel/bot_admins.db
-                        fi
+                            # Notification restricted only to the main CHAT_ID owner to avoid spamming co-admins
                     fi
                 fi
             fi
