@@ -31,7 +31,7 @@ create_account() {
     if [[ ! "$limit_ip" =~ ^[0-9]+$ ]]; then limit_ip=0; fi
     if [[ ! "$limit_bw" =~ ^[0-9]+$ ]]; then limit_bw=0; fi
     
-    if [[ ! "$user" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    if [[ ! "$user" =~ ^[-a-zA-Z0-9_]+$ ]]; then
         send_msg "❌ <b>Nama User Salah!</b>\nHanya boleh huruf, angka, dan strip (-)."
         return
     fi
