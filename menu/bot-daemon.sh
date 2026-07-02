@@ -42,18 +42,21 @@ create_account() {
 
     local exp_date=""
     local tampil_exp=""
-    if [[ "$hari" =~ ^[0-9]+m$ ]]; then
-        exp_date=$(date -d "+${hari%m} minutes" +"%Y-%m-%d %H:%M:%S")
-        tampil_exp=$(date -d "+${hari%m} minutes" +"%Y-%m-%d %H:%M:%S")
-    elif [[ "$hari" =~ ^[0-9]+h$ ]]; then
-        exp_date=$(date -d "+${hari%h} hours" +"%Y-%m-%d %H:%M:%S")
-        tampil_exp=$(date -d "+${hari%h} hours" +"%Y-%m-%d %H:%M:%S")
-    elif [[ "$hari" =~ ^[0-9]+$ || "$hari" =~ ^[0-9]+d$ ]]; then
-        local d="${hari%d}"
-        exp_date=$(date -d "+${d} days" +"%Y-%m-%d %H:%M:%S")
-        tampil_exp=$(date -d "+${d} days" +"%Y-%m-%d")
+    
+    local clean_hari="${hari%[hmd]}"
+    if [[ -z "${clean_hari//[0-9]/}" && -n "$clean_hari" ]]; then
+        if [[ "$hari" == *m ]]; then
+            exp_date=$(date -d "+${clean_hari} minutes" +"%Y-%m-%d %H:%M:%S")
+            tampil_exp=$(date -d "+${clean_hari} minutes" +"%Y-%m-%d %H:%M:%S")
+        elif [[ "$hari" == *h ]]; then
+            exp_date=$(date -d "+${clean_hari} hours" +"%Y-%m-%d %H:%M:%S")
+            tampil_exp=$(date -d "+${clean_hari} hours" +"%Y-%m-%d %H:%M:%S")
+        else
+            exp_date=$(date -d "+${clean_hari} days" +"%Y-%m-%d %H:%M:%S")
+            tampil_exp=$(date -d "+${clean_hari} days" +"%Y-%m-%d")
+        fi
     else
-        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m)."
+        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m).\nDebug: hari='${hari}'"
         return
     fi
     local link1=""
@@ -237,18 +240,20 @@ renew_account() {
     local exp_date=""
     local tampil_exp=""
     
-    if [[ "$hari" =~ ^[0-9]+m$ ]]; then
-        exp_date=$(date -d "+${hari%m} minutes" +"%Y-%m-%d %H:%M:%S")
-        tampil_exp=$(date -d "+${hari%m} minutes" +"%Y-%m-%d %H:%M")
-    elif [[ "$hari" =~ ^[0-9]+h$ ]]; then
-        exp_date=$(date -d "+${hari%h} hours" +"%Y-%m-%d %H:%M:%S")
-        tampil_exp=$(date -d "+${hari%h} hours" +"%Y-%m-%d %H:%M")
-    elif [[ "$hari" =~ ^[0-9]+$ || "$hari" =~ ^[0-9]+d$ ]]; then
-        local d="${hari%d}"
-        exp_date=$(date -d "+${d} days" +"%Y-%m-%d %H:%M:%S")
-        tampil_exp=$(date -d "+${d} days" +"%Y-%m-%d")
+    local clean_hari="${hari%[hmd]}"
+    if [[ -z "${clean_hari//[0-9]/}" && -n "$clean_hari" ]]; then
+        if [[ "$hari" == *m ]]; then
+            exp_date=$(date -d "+${clean_hari} minutes" +"%Y-%m-%d %H:%M:%S")
+            tampil_exp=$(date -d "+${clean_hari} minutes" +"%Y-%m-%d %H:%M:%S")
+        elif [[ "$hari" == *h ]]; then
+            exp_date=$(date -d "+${clean_hari} hours" +"%Y-%m-%d %H:%M:%S")
+            tampil_exp=$(date -d "+${clean_hari} hours" +"%Y-%m-%d %H:%M:%S")
+        else
+            exp_date=$(date -d "+${clean_hari} days" +"%Y-%m-%d %H:%M:%S")
+            tampil_exp=$(date -d "+${clean_hari} days" +"%Y-%m-%d")
+        fi
     else
-        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m)."
+        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m).\nDebug: hari='${hari}'"
         return
     fi
     
@@ -481,7 +486,10 @@ while true; do
             for (( i=0; i<$MSG_COUNT; i++ )); do
                 UPDATE_ID=$(echo "$UPDATES" | jq -r ".result[$i].update_id")
                 SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].message.chat.id")
-                TEXT=$(echo "$UPDATES" | jq -r ".result[$i].message.text")
+                
+                # Handle direct message
+                TEXT=$(echo "$UPDATES" | jq -r ".result[$i].message.text // empty")
+                TEXT="${TEXT//$'\r'/}"
 
                 if is_admin "$SENDER_ID"; then
                     CMD=$(echo "$TEXT" | awk '{print $1}')
