@@ -40,6 +40,9 @@ create_account() {
         return
     fi
 
+    local uuid=$(uuidgen)
+    local domain=$(cat /etc/xray/domain 2>/dev/null)
+    
     local exp_date=""
     local tampil_exp=""
     
