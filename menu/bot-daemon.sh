@@ -518,6 +518,9 @@ while true; do
                             MSG+="├ <code>/detail [user]</code> (Tampilkan Link)\n"
                             MSG+="├ <code>/admin</code> (Tambah Akses)\n"
                             MSG+="├ <code>/backup</code> (Backup Database VPS)\n"
+                            MSG+="├ <code>/lock [user]</code> (Kunci Akun)\n"
+                            MSG+="├ <code>/unlock [user]</code> (Buka Kunci)\n"
+                            MSG+="├ <code>/cek_trafik</code> (Top Pemakaian)\n"
                             MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
                             MSG+="━━━━━━━━━━━━━━━━━━━━\n"
                             MSG+="<i>Contoh Normal: /vless budi 30 2 10</i>\n"
@@ -583,10 +586,78 @@ while true; do
                             backup_vps
                             ;;
                         /info)
-                            IP=$(curl -s ipv4.icanhazip.com)
+                            IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
                             UPTIME=$(uptime -p | cut -d' ' -f2-)
                             RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
-                            send_msg "💻 <b>VPS INFO</b>\n\n<b>IP :</b> <code>${IP}</code>\n<b>Uptime :</b> ${UPTIME}\n<b>RAM :</b> ${RAM}"
+                            CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+                            DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
+                            OS=$(cat /etc/os-release | grep -w PRETTY_NAME | cut -d= -f2 | tr -d '"')
+                            
+                            INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n"
+                            INFO_MSG+="━━━━━━━━━━━━━━━━━━━━\n"
+                            INFO_MSG+="<b>🖥 OS     :</b> <code>${OS}</code>\n"
+                            INFO_MSG+="<b>🌐 IP     :</b> <code>${IP}</code>\n"
+                            INFO_MSG+="<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n"
+                            INFO_MSG+="<b>🧠 RAM    :</b> <code>${RAM}</code>\n"
+                            INFO_MSG+="<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n"
+                            INFO_MSG+="<b>💾 Disk   :</b> <code>${DISK}</code>\n"
+                            INFO_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                            send_msg "$INFO_MSG"
+                            ;;
+                        /lock|/unlock)
+                            if [[ -z "$ARG1" ]]; then
+                                send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>$CMD nama_user</code>"
+                            else
+                                DB_LOCK="/etc/wibutunnel/locked_users.db"
+                                if [[ "$CMD" == "/lock" ]]; then
+                                    if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
+                                        send_msg "⚠️ Akun <code>$ARG1</code> sudah dalam status TERKUNCI."
+                                    elif jq -e --arg u "$ARG1" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
+                                        jq --arg user "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+                                        echo "$ARG1:$(date +%s):0:LOCK" >> "$DB_LOCK"
+                                        systemctl restart xray >/dev/null 2>&1
+                                        send_msg "🔒 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DIKUNCI (Dipindahkan ke Recovery)."
+                                    else
+                                        send_msg "❌ <b>Gagal!</b>\nAkun <code>$ARG1</code> tidak ditemukan."
+                                    fi
+                                elif [[ "$CMD" == "/unlock" ]]; then
+                                    if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
+                                        jq --arg u "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+                                        sed -i "/^${ARG1}:/d" "$DB_LOCK" 2>/dev/null
+                                        systemctl restart xray >/dev/null 2>&1
+                                        send_msg "🔓 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DI-UNLOCK dan dapat digunakan kembali."
+                                    else
+                                        send_msg "⚠️ Akun <code>$ARG1</code> tidak dalam status terkunci."
+                                    fi
+                                fi
+                            fi
+                            ;;
+                        /cek_trafik)
+                            if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
+                                TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                                idx=1
+                                while IFS=":" read -r usr bytes; do
+                                    if [[ "$bytes" -ge 1073741824 ]]; then
+                                        gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }')
+                                        vol="${gb} GB"
+                                    elif [[ "$bytes" -ge 1048576 ]]; then
+                                        mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }')
+                                        vol="${mb} MB"
+                                    elif [[ "$bytes" -ge 1024 ]]; then
+                                        kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }')
+                                        vol="${kb} KB"
+                                    else
+                                        vol="${bytes} Bytes"
+                                    fi
+                                    TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> : ${vol}\n"
+                                    ((idx++))
+                                    [[ $idx -gt 10 ]] && break
+                                done < <(sort -t: -k2 -nr /etc/wibutunnel/user_usage.db 2>/dev/null)
+                                TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                                send_msg "$TRF_MSG"
+                            else
+                                send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
+                            fi
                             ;;
                     esac
                 fi
