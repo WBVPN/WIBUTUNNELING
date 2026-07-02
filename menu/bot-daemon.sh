@@ -497,7 +497,7 @@ while true; do
                             MSG+="├ <code>/vless [user] [hari/jam] [ip] [gb]</code>\n"
                             MSG+="├ <code>/vmess [user] [hari/jam] [ip] [gb]</code>\n"
                             MSG+="├ <code>/trojan [user] [hari/jam] [ip] [gb]</code>\n"
-                            MSG+="└ <code>/trial [vless/vmess/trojan]</code>\n\n"
+                            MSG+="└ <code>/trial [vless/vmess/trojan] [gb]</code>\n\n"
                             MSG+="⚙️ <b>Menu Management</b>\n"
                             MSG+="├ <code>/hapus [user]</code>\n"
                             MSG+="├ <code>/renew [user] [hari]</code>\n"
@@ -509,7 +509,7 @@ while true; do
                             MSG+="━━━━━━━━━━━━━━━━━━━━\n"
                             MSG+="<i>Contoh Normal: /vless budi 30 2 10</i>\n"
                             MSG+="<i>Contoh Per-Jam: /vless budi 12h 2 10</i>\n"
-                            MSG+="<i>Contoh Trial 1 Jam: /trial vless</i>"
+                            MSG+="<i>Contoh Trial 1 Jam (1 GB): /trial vless 1</i>"
                             send_msg "$MSG"
                             ;;
                         /admin)
@@ -547,11 +547,14 @@ while true; do
                             ;;
                         /trial)
                             local tr_proto=$(echo "$ARG1" | tr 'a-z' 'A-Z')
+                            local tr_bw=${ARG2:-1}
+                            if [[ ! "$tr_bw" =~ ^[0-9]+$ ]]; then tr_bw=1; fi
+                            
                             if [[ "$tr_proto" != "VLESS" && "$tr_proto" != "VMESS" && "$tr_proto" != "TROJAN" ]]; then
-                                send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/trial vless</code> atau <code>/trial vmess</code>"
+                                send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/trial vless</code> atau <code>/trial vless 2</code> (untuk trial 2GB)"
                             else
                                 local tr_user="trial-$(tr -dc 'a-z0-9' < /dev/urandom | head -c 4)"
-                                create_account "$tr_proto" "$tr_user" "1h" "1" "1"
+                                create_account "$tr_proto" "$tr_user" "1h" "1" "$tr_bw"
                             fi
                             ;;
                         /hapus)
