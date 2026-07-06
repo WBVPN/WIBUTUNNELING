@@ -20,7 +20,7 @@ MYIP=$(curl -sS --max-time 5 ipv4.icanhazip.com)
 clear
 echo -e "\e[1;36m[+] Memeriksa Lisensi Script...\e[0m"
 
-LINK_IZIN="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
+LINK_IZIN="https://ghproxy.net/https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
 GET_DATA=$(curl -sS --max-time 10 $LINK_IZIN | grep -w "$MYIP")
 
 CLIENT_NAME=$(echo "$GET_DATA" | awk '{print $2}' | tr -d '\r' | tr -d ' ')
