@@ -341,16 +341,8 @@ backup_vps() {
             
         local file_id=$(echo "$response" | jq -r '.result.document.file_id // empty')
         
-        # Upload to Uguu.se (Direct Link)
-        local upload_resp=$(curl -s --max-time 60 -F "files[]=@${backup_file}" "https://uguu.se/upload.php")
-        local parsed_link=$(echo "$upload_resp" | jq -r '.files[0].url // empty' 2>/dev/null)
-        local online_link="Gagal Upload"
-        if [[ -n "$parsed_link" && "$parsed_link" == http* ]]; then
-            online_link="$parsed_link"
-        fi
-        
         if [[ -n "$file_id" ]]; then
-            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<b>Telegram File ID:</b>\n<code>${file_id}</code>\n\n🌐 <b>Link Uguu (Direct):</b>\n<code>${online_link}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<code>${file_id}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
             curl -s --max-time 15 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
                 -F "chat_id=${target_id}" \
                 -F "parse_mode=html" \
