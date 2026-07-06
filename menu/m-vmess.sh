@@ -28,7 +28,14 @@ user_json_exists() {
 select_user() {
     local ACTION_TITLE=$1
     local DISPLAY_TYPE=$2
-    mapfile -t user_array < <(jq -r '.inbounds[4].settings.clients[].email' "$CONFIG_FILE" | grep -v "dummy" | sort)
+    mapfile -t raw_user_array < <(jq -r '.inbounds[4].settings.clients[].email' "$CONFIG_FILE" | grep -v "dummy" | sort)
+
+    declare -a user_array
+    for u in "${raw_user_array[@]}"; do
+        if grep -q "^${u}:" "$DB_LOCK" 2>/dev/null; then continue; fi
+        user_array+=("$u")
+    done
+
     TOTAL_USERS=${#user_array[@]}
     if [ "$TOTAL_USERS" -eq 0 ]; then echo -e "${YELLOW}Belum ada akun VMESS.${NC}"; read -p "Tekan Enter..." dummy; SELECTED_USER=""; return; fi
 

@@ -54,6 +54,11 @@ process_expired() {
         if [[ "$user_exists" != "null" ]]; then
             if [ "$today_sec" -ge "$exp_sec" ]; then
                 
+                # Mencegah spam jika user sudah dalam status EXPIRED di recovery
+                if grep -q "^${user}:.*:EXPIRED" /etc/wibutunnel/locked_users.db 2>/dev/null; then
+                    continue
+                fi
+
                 if [[ "$user" == *"trial"* ]]; then
                     if [[ -n "$INB3" ]]; then
                         jq --arg u "$user" '
