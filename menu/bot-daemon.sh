@@ -341,14 +341,19 @@ backup_vps() {
             
         local file_id=$(echo "$response" | jq -r '.result.document.file_id // empty')
         
-        # Upload to Catbox
-        local catbox_link=$(curl -s --max-time 60 -F "reqtype=fileupload" -F "fileToUpload=@${backup_file}" "https://catbox.moe/user/api.php")
-        if [[ ! "$catbox_link" == http* ]]; then
-            catbox_link="Gagal Upload"
+        # Upload to Gofile
+        local gofile_server=$(curl -s https://api.gofile.io/servers | jq -r '.data.servers[0].name')
+        local online_link="Gagal Upload"
+        if [[ -n "$gofile_server" && "$gofile_server" != "null" ]]; then
+            local upload_resp=$(curl -s --max-time 60 -F "file=@${backup_file}" "https://${gofile_server}.gofile.io/contents/uploadfile")
+            local parsed_link=$(echo "$upload_resp" | jq -r '.data.downloadPage // empty')
+            if [[ -n "$parsed_link" && "$parsed_link" == http* ]]; then
+                online_link="$parsed_link"
+            fi
         fi
         
         if [[ -n "$file_id" ]]; then
-            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<b>Telegram File ID:</b>\n<code>${file_id}</code>\n\n🌐 <b>Link Catbox:</b>\n<code>${catbox_link}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<b>Telegram File ID:</b>\n<code>${file_id}</code>\n\n🌐 <b>Link Gofile:</b>\n<code>${online_link}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
             curl -s --max-time 15 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
                 -F "chat_id=${target_id}" \
                 -F "parse_mode=html" \
