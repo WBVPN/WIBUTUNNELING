@@ -50,6 +50,17 @@ apt update -y && apt install -y curl wget && bash <(curl -s https://raw.githubus
 | **Cek Trafik** | Monitor Real-Time IP dan Bandwidth |
 | **Sistem Panel** | Backup & Restore via Telegram (File ID / Path) |
 
+## 🤖 Cara Mengaktifkan Bot Telegram
+
+Setelah proses instalasi di VPS selesai, fitur Bot Telegram belum langsung menyala karena membutuhkan Token milik Anda. 
+
+1. Buka Telegram dan cari **@BotFather**, lalu buat bot baru dengan mengetik `/newbot`.
+2. Dapatkan **HTTP API Token** dari BotFather.
+3. Dapatkan **CHAT ID** Telegram Anda (bisa melalui bot @userinfobot atau @MissRose_bot).
+4. Masuk ke terminal VPS Anda, ketik `menu`.
+5. Pilih **[6] Pengaturan / Settings**, lalu pilih **Setup Bot Telegram**.
+6. Masukkan Token dan Chat ID Anda. Bot siap melayani Anda 24/7!
+
 ---
 
 ## 📞 Support & Kontak

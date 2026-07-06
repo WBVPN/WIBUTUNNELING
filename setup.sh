@@ -437,6 +437,7 @@ download_menu "menu/menu-lock.sh" "menu-lock"
 download_menu "menu/menu-unlock.sh" "menu-unlock"
 download_menu "menu/cek-trafik.sh" "cek-trafik"
 download_menu "common.sh" "common.sh"
+download_menu "menu/bot-daemon.sh" "bot-daemon"
 
 # =========================================================
 # SISTEM RECOVERY CENTER & ALGOJO MONITOR (v4.0 PERFECT)
