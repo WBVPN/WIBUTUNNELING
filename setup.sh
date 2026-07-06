@@ -293,7 +293,7 @@ fi
 cat /etc/letsencrypt/live/"$domain"/fullchain.pem /etc/letsencrypt/live/"$domain"/privkey.pem > /etc/haproxy/certs/"$domain".pem
 
 # XRAY CORE
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
+wget -qO- https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh | sed 's/https:\/\/github.com\//https:\/\/ghproxy.net\/https:\/\/github.com\//g' | bash -s -- install
 
 # Backup config lama
 [ -f /usr/local/etc/xray/config.json ] && cp /usr/local/etc/xray/config.json "/usr/local/etc/xray/config.json.bak.$(date +%F_%H%M%S)"
