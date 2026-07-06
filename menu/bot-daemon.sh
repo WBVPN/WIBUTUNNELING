@@ -494,7 +494,7 @@ while true; do
                         /start|/menu|/help)
                             MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nSelamat datang di Panel Kendali VPS. Silakan pilih menu di bawah ini:"
                             
-                            local kb='{"inline_keyboard":['
+                            kb='{"inline_keyboard":['
                             kb+='[{"text":"➕ Create Account","callback_data":"cmd_create"},{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"}],'
                             kb+='[{"text":"📋 List Akun","callback_data":"cmd_list"},{"text":"📊 Cek Trafik","callback_data":"cmd_trafik"}],'
                             kb+='[{"text":"🟢 Cek Login","callback_data":"cmd_login"},{"text":"💻 Info VPS","callback_data":"cmd_info"}],'
