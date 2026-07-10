@@ -612,6 +612,7 @@ while true; do
                     fi
                 fi
 
+
                 if is_admin "$SENDER_ID"; then
                     CMD=$(echo "$TEXT" | awk '{print $1}')
                     ARG1=$(echo "$TEXT" | awk '{print $2}')
@@ -809,7 +810,8 @@ while true; do
                     SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.chat.id")
                     MESSAGE_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.message_id")
                     DATA=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.data // empty")
-                    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null                if is_admin "$SENDER_ID"; then
+                    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null
+                if is_admin "$SENDER_ID"; then
                         case "$DATA" in
                             cmd_list) list_account ;;
                             cmd_trafik) TEXT="/cek_trafik"; CMD="/cek_trafik" ;; # Trigger text parsing below or call directly
