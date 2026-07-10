@@ -20,13 +20,13 @@ send_msg() {
             --data-urlencode "disable_web_page_preview=true" \
             --data-urlencode "parse_mode=html" \
             --data-urlencode "text=${text}" \
-            --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+            --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     else
         curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${target_id}" \
             --data-urlencode "disable_web_page_preview=true" \
             --data-urlencode "parse_mode=html" \
-            --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+            --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     fi
 }
 
@@ -35,9 +35,9 @@ edit_msg() {
     local target_id="${SENDER_ID:-$CHAT_ID}"
     local keyboard="$2"
     if [[ -n "$keyboard" ]]; then
-        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText"             --data-urlencode "chat_id=${target_id}"             --data-urlencode "message_id=${MESSAGE_ID}"             --data-urlencode "disable_web_page_preview=true"             --data-urlencode "parse_mode=html"             --data-urlencode "text=${text}"             --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText"             --data-urlencode "chat_id=${target_id}"             --data-urlencode "message_id=${MESSAGE_ID}"             --data-urlencode "disable_web_page_preview=true"             --data-urlencode "parse_mode=html"             --data-urlencode "text=${text}"             --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     else
-        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText"             --data-urlencode "chat_id=${target_id}"             --data-urlencode "message_id=${MESSAGE_ID}"             --data-urlencode "disable_web_page_preview=true"             --data-urlencode "parse_mode=html"             --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText"             --data-urlencode "chat_id=${target_id}"             --data-urlencode "message_id=${MESSAGE_ID}"             --data-urlencode "disable_web_page_preview=true"             --data-urlencode "parse_mode=html"             --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     fi
 }
 
@@ -793,7 +793,7 @@ while true; do
                     SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.chat.id")
                     MESSAGE_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.message_id")
                     DATA=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.data // empty")
-                    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null &
+                    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null
                     
                                     if [[ -n "$TEXT" && -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" ]]; then
                     if [[ "$TEXT" == "/cancel" || "$TEXT" == "/menu" || "$TEXT" == "/start" ]]; then
