@@ -30,17 +30,6 @@ send_msg() {
     fi
 }
 
-edit_msg() {
-    local text=$(echo -e "$1")
-    local target_id="${SENDER_ID:-$CHAT_ID}"
-    local keyboard="$2"
-    if [[ -n "$keyboard" ]]; then
-        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText"             --data-urlencode "chat_id=${target_id}"             --data-urlencode "message_id=${MESSAGE_ID}"             --data-urlencode "disable_web_page_preview=true"             --data-urlencode "parse_mode=html"             --data-urlencode "text=${text}"             --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
-    else
-        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText"             --data-urlencode "chat_id=${target_id}"             --data-urlencode "message_id=${MESSAGE_ID}"             --data-urlencode "disable_web_page_preview=true"             --data-urlencode "parse_mode=html"             --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
-    fi
-}
-
 create_account() {
     local proto=$1
     local user=$2
@@ -528,10 +517,10 @@ while true; do
                             MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nSelamat datang di Panel Kendali VPS. Silakan pilih menu di bawah ini:"
                             
                             kb='{"inline_keyboard":['
-                            kb+='[{"text":"🚀 BUAT AKUN BARU 🚀","callback_data":"cmd_create"}],'
-                            kb+='[{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"},{"text":"📋 Daftar Akun","callback_data":"cmd_list"}],'
-                            kb+='[{"text":"📊 Trafik Data","callback_data":"cmd_trafik"},{"text":"🟢 User Online","callback_data":"cmd_login"}],'
-                            kb+='[{"text":"💻 Info Server","callback_data":"cmd_info"},{"text":"📦 Backup Data","callback_data":"cmd_backup"}]'
+                            kb+='[{"text":"➕ Create Account","callback_data":"cmd_create"},{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"}],'
+                            kb+='[{"text":"📋 List Akun","callback_data":"cmd_list"},{"text":"📊 Cek Trafik","callback_data":"cmd_trafik"}],'
+                            kb+='[{"text":"🟢 Cek Login","callback_data":"cmd_login"},{"text":"💻 Info VPS","callback_data":"cmd_info"}],'
+                            kb+='[{"text":"📦 Backup","callback_data":"cmd_backup"}]'
                             kb+=']}'
                             
                             send_msg "$MSG" "$kb"
@@ -711,7 +700,6 @@ while true; do
                 CB_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.id // empty")
                 if [[ -n "$CB_ID" ]]; then
                     SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.chat.id")
-                    MESSAGE_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.message_id")
                     DATA=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.data // empty")
                     curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null
                     
@@ -723,36 +711,22 @@ while true; do
                             cmd_info) TEXT="/info"; CMD="/info" ;;
                             cmd_backup) backup_vps ;;
                             cmd_create)
-                                msg_create="✨ <b>PANDUAN MEMBUAT AKUN</b> ✨\n━━━━━━━━━━━━━━━━━━━━\n"
-                                msg_create+="Ketik perintah manual di chat:\n\n"
-                                msg_create+="💎 <b>VLESS:</b>\n<code>/vless [nama] [hari] [ip] [gb]</code>\n"
-                                msg_create+="🌀 <b>VMESS:</b>\n<code>/vmess [nama] [hari] [ip] [gb]</code>\n"
-                                msg_create+="⚡️ <b>TROJAN:</b>\n<code>/trojan [nama] [hari] [ip] [gb]</code>\n\n"
+                                msg_create="✨ <b>Cara Membuat Akun:</b>\nKetik perintah berikut di chat:\n\n"
+                                msg_create+="<code>/vless [nama] [hari] [ip] [gb]</code>\n"
+                                msg_create+="<code>/vmess [nama] [hari] [ip] [gb]</code>\n"
+                                msg_create+="<code>/trojan [nama] [hari] [ip] [gb]</code>\n\n"
                                 msg_create+="<b>Contoh:</b> <code>/vless budi 30 2 10</code>\n"
-                                msg_create+="<b>Trial:</b> <code>/trialvless 1h 1</code>\n━━━━━━━━━━━━━━━━━━━━"
-                                kb_back='{"inline_keyboard":[[{"text":"🔙 Kembali ke Menu","callback_data":"cmd_menu"}]]}'
-                                edit_msg "$msg_create" "$kb_back"
-                                ;;
-                                                        cmd_menu)
-                                MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nSelamat datang di Panel Kendali VPS. Silakan pilih menu di bawah ini:"
-                                kb='{"inline_keyboard":['
-                                kb+='[{"text":"🚀 BUAT AKUN BARU 🚀","callback_data":"cmd_create"}],'
-                                kb+='[{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"},{"text":"📋 Daftar Akun","callback_data":"cmd_list"}],'
-                                kb+='[{"text":"📊 Trafik Data","callback_data":"cmd_trafik"},{"text":"🟢 User Online","callback_data":"cmd_login"}],'
-                                kb+='[{"text":"💻 Info Server","callback_data":"cmd_info"},{"text":"📦 Backup Data","callback_data":"cmd_backup"}]'
-                                kb+=']}'
-                                edit_msg "$MSG" "$kb"
+                                msg_create+="<b>Contoh Trial:</b> <code>/trialvless 1h 1</code>"
+                                send_msg "$msg_create"
                                 ;;
                             cmd_manage)
-                                msg_manage="⚙️ <b>PANDUAN KELOLA AKUN</b> ⚙️\n━━━━━━━━━━━━━━━━━━━━\n"
-                                msg_manage+="Ketik perintah manual di chat:\n\n"
-                                msg_manage+="🗑 <b>Hapus Akun:</b>\n<code>/hapus [nama]</code>\n"
-                                msg_manage+="🔄 <b>Perpanjang:</b>\n<code>/renew [nama] [hari]</code>\n"
-                                msg_manage+="🔗 <b>Cek Link Akun:</b>\n<code>/detail [nama]</code>\n"
-                                msg_manage+="🔒 <b>Kunci (Lock):</b>\n<code>/lock [nama]</code>\n"
-                                msg_manage+="🔓 <b>Buka (Unlock):</b>\n<code>/unlock [nama]</code>\n━━━━━━━━━━━━━━━━━━━━"
-                                kb_back='{"inline_keyboard":[[{"text":"🔙 Kembali ke Menu","callback_data":"cmd_menu"}]]}'
-                                edit_msg "$msg_manage" "$kb_back"
+                                msg_manage="⚙️ <b>Cara Kelola Akun:</b>\nKetik perintah berikut di chat:\n\n"
+                                msg_manage+="<b>Hapus:</b> <code>/hapus [nama]</code>\n"
+                                msg_manage+="<b>Perpanjang:</b> <code>/renew [nama] [hari]</code>\n"
+                                msg_manage+="<b>Cek Link:</b> <code>/detail [nama]</code>\n"
+                                msg_manage+="<b>Kunci (Lock):</b> <code>/lock [nama]</code>\n"
+                                msg_manage+="<b>Buka (Unlock):</b> <code>/unlock [nama]</code>\n"
+                                send_msg "$msg_manage"
                                 ;;
                         esac
                         
