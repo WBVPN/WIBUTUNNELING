@@ -182,7 +182,7 @@ delete_account() {
         .inbounds[5].settings.clients |= map(select(.email != $u)) |
         .inbounds[6].settings.clients |= map(select(.email != $u)) |
         .inbounds[7].settings.clients |= map(select(.email != $u)) |
-        .inbounds[8].settings.clients |= map(select(.password != $u)) |
+        .inbounds[8].settings.clients |= map(select(.email != $u)) |
         (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))
     ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
 
