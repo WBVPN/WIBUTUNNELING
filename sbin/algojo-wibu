@@ -11,48 +11,14 @@ LOCK_DURATION=15
 if [ -f "$LOCK_CONF" ]; then source "$LOCK_CONF"; fi
 [[ ! -f "$DB_IP" ]] && exit 0
 
-TIMESTAMP=$(date +"%Y/%m/%d %H:%M")
-AGO1=$(date -d "1 minute ago" +"%Y/%m/%d %H:%M")
-AGO2=$(date -d "2 minutes ago" +"%Y/%m/%d %H:%M")
-AGO3=$(date -d "3 minutes ago" +"%Y/%m/%d %H:%M")
+# [MATA ELANG - NEW LOGIC] Cek koneksi ESTABLISHED + Mapping IP-Email
+awk '/accepted/ {ip=$3; sub(/:[0-9]+$/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") map[ip]=email} END {for(ip in map) print ip, map[ip]}' <(tail -n 50000 /var/log/xray/access.log 2>/dev/null) > /etc/wibutunnel/tmp/ip_map.txt 2>/dev/null
+ss -ntp | awk 'NR>1 && $1=="ESTAB" {print $5}' | sed 's/:[^:]*$//' | sort -u > /etc/wibutunnel/tmp/active_ips.txt 2>/dev/null
 
-# Single awk pass: extract email + unique IPs per user from recent accepted connections
-awk -v TS="$TIMESTAMP" -v A1="$AGO1" -v A2="$AGO2" -v A3="$AGO3" '
-BEGIN { FS=" "; split("", ipmap) }
-$0 !~ /accepted/ { next }
-{ ts = $1 " " substr($2, 1, 5) }
-ts != TS && ts != A1 && ts != A2 && ts != A3 { next }
-{
-    # Extract IP
-    for (i=1; i<=NF; i++) {
-        if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && $i != "127.0.0.1") {
-            ip = $i
-            break
-        }
-    }
-    if (ip == "") next
+LOGIN_DATA=$(awk 'NR==FNR{map[$1]=$2; next} {if($1 in map){email=map[$1]; if(ips[email]=="") ips[email]=$1; else ips[email]=ips[email]" "$1}} END {for(e in ips) print e, ips[e]}' /etc/wibutunnel/tmp/ip_map.txt /etc/wibutunnel/tmp/active_ips.txt)
 
-    # Extract email: everything inside the last [email] field
-    email = ""
-    for (i=1; i<=NF; i++) {
-        if ($i ~ /^\[.*@.*\]$/) {
-            e = substr($i, 2, length($i)-2)
-            if (e !~ /^dummy|api/) email = e
-            break
-        }
-    }
-    if (email == "") next
-
-    key = email SUBSEP ip
-    if (!(key in seen)) {
-        seen[key] = 1
-        ips[email] = ips[email] (ips[email] ? " " : "") ip
-    }
-}
-END {
-    for (e in ips) print e, ips[e]
-}
-' /var/log/xray/access.log | while read -r email ip_list; do
+echo "$LOGIN_DATA" | while read -r email ip_list; do
+    if [[ -z "$email" || -z "$ip_list" ]]; then continue; fi
     max_ip=$(grep "^${email}:" "$DB_IP" 2>/dev/null | cut -d: -f2)
     [[ "$max_ip" == "0" || -z "$max_ip" ]] && continue
 
