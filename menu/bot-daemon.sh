@@ -516,6 +516,86 @@ while true; do
                 
                 echo "[$(date)] RECV TEXT: $TEXT from $SENDER_ID (Admin: $CHAT_ID)" >> /etc/wibutunnel/tmp/bot_error.log
 
+                                if [[ -n "$TEXT" && -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" ]]; then
+                    if [[ "$TEXT" == "/cancel" || "$TEXT" == "/menu" || "$TEXT" == "/start" ]]; then
+                        rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                        send_msg "❌ <b>Aksi Dibatalkan.</b>"
+                        # Tetap lanjut biarkan parse /menu di bawah
+                    else
+                        STATE=$(cat "/etc/wibutunnel/tmp/state_${SENDER_ID}")
+                        case "$STATE" in
+                            CREATE_USER)
+                                echo "USER=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                echo "CREATE_HARI" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                send_msg "✅ Username: <code>$TEXT</code>\n\n➡️ <b>Berapa durasi aktifnya?</b>\n(Ketik angka hari, misal: <b>30</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                ;;
+                            CREATE_HARI)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    echo "HARI=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    echo "CREATE_IP" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                    send_msg "✅ Durasi: <code>$TEXT Hari</code>\n\n➡️ <b>Berapa Limit IP-nya?</b>\n(Ketik angka, 0 untuk bebas, misal: <b>2</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk durasi hari!"
+                                fi
+                                ;;
+                            CREATE_IP)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    echo "IP=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    echo "CREATE_GB" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                    send_msg "✅ Limit IP: <code>$TEXT</code>\n\n➡️ <b>Berapa Limit Kuota GB-nya?</b>\n(Ketik angka, 0 untuk unli, misal: <b>50</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk limit IP!"
+                                fi
+                                ;;
+                            CREATE_GB)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    GB=$TEXT
+                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    send_msg "⏳ <b>Sedang membuat akun $PROTO, mohon tunggu...</b>"
+                                    create_account "$PROTO" "$USER" "$HARI" "$IP" "$GB"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk limit kuota GB!"
+                                fi
+                                ;;
+                            MANAGE_USER)
+                                source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                USER="$TEXT"
+                                if [[ "$ACTION" == "RENEW" ]]; then
+                                    echo "USER=$USER" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    echo "MANAGE_HARI" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                    send_msg "✅ Username: <code>$USER</code>\n\n➡️ <b>Berapa hari perpanjangannya?</b>\n(Ketik angka, misal: <b>30</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                else
+                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    if [[ "$ACTION" == "DEL" ]]; then delete_account "$USER"
+                                    elif [[ "$ACTION" == "CEK" ]]; then detail_account "$USER"
+                                    elif [[ "$ACTION" == "LOCK" ]]; then
+                                        /usr/local/bin/lock-user "$USER" 0 "MANUAL_LOCK" "UNKNOWN" "N/A" "N/A"
+                                        send_msg "✅ Akun <code>$USER</code> telah dikunci (Locked)."
+                                    elif [[ "$ACTION" == "UNLOCK" ]]; then
+                                        /usr/local/bin/unlock-user "$USER"
+                                        send_msg "✅ Akun <code>$USER</code> telah dibuka (Unlocked)."
+                                    fi
+                                fi
+                                ;;
+                            MANAGE_HARI)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    HARI=$TEXT
+                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    renew_account "$USER" "$HARI"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk jumlah hari!"
+                                fi
+                                ;;
+                        esac
+                        # Update offset and skip normal command processing
+                        OFFSET=$((UPDATE_ID + 1))
+                        echo "$OFFSET" > "$OFFSET_FILE"
+                        continue
+                    fi
+                fi
+
                 if is_admin "$SENDER_ID"; then
                     CMD=$(echo "$TEXT" | awk '{print $1}')
                     ARG1=$(echo "$TEXT" | awk '{print $2}')
@@ -715,7 +795,87 @@ while true; do
                     DATA=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.data // empty")
                     curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null
                     
-                    if is_admin "$SENDER_ID"; then
+                                    if [[ -n "$TEXT" && -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" ]]; then
+                    if [[ "$TEXT" == "/cancel" || "$TEXT" == "/menu" || "$TEXT" == "/start" ]]; then
+                        rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                        send_msg "❌ <b>Aksi Dibatalkan.</b>"
+                        # Tetap lanjut biarkan parse /menu di bawah
+                    else
+                        STATE=$(cat "/etc/wibutunnel/tmp/state_${SENDER_ID}")
+                        case "$STATE" in
+                            CREATE_USER)
+                                echo "USER=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                echo "CREATE_HARI" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                send_msg "✅ Username: <code>$TEXT</code>\n\n➡️ <b>Berapa durasi aktifnya?</b>\n(Ketik angka hari, misal: <b>30</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                ;;
+                            CREATE_HARI)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    echo "HARI=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    echo "CREATE_IP" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                    send_msg "✅ Durasi: <code>$TEXT Hari</code>\n\n➡️ <b>Berapa Limit IP-nya?</b>\n(Ketik angka, 0 untuk bebas, misal: <b>2</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk durasi hari!"
+                                fi
+                                ;;
+                            CREATE_IP)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    echo "IP=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    echo "CREATE_GB" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                    send_msg "✅ Limit IP: <code>$TEXT</code>\n\n➡️ <b>Berapa Limit Kuota GB-nya?</b>\n(Ketik angka, 0 untuk unli, misal: <b>50</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk limit IP!"
+                                fi
+                                ;;
+                            CREATE_GB)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    GB=$TEXT
+                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    send_msg "⏳ <b>Sedang membuat akun $PROTO, mohon tunggu...</b>"
+                                    create_account "$PROTO" "$USER" "$HARI" "$IP" "$GB"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk limit kuota GB!"
+                                fi
+                                ;;
+                            MANAGE_USER)
+                                source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                USER="$TEXT"
+                                if [[ "$ACTION" == "RENEW" ]]; then
+                                    echo "USER=$USER" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    echo "MANAGE_HARI" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                    send_msg "✅ Username: <code>$USER</code>\n\n➡️ <b>Berapa hari perpanjangannya?</b>\n(Ketik angka, misal: <b>30</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
+                                else
+                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    if [[ "$ACTION" == "DEL" ]]; then delete_account "$USER"
+                                    elif [[ "$ACTION" == "CEK" ]]; then detail_account "$USER"
+                                    elif [[ "$ACTION" == "LOCK" ]]; then
+                                        /usr/local/bin/lock-user "$USER" 0 "MANUAL_LOCK" "UNKNOWN" "N/A" "N/A"
+                                        send_msg "✅ Akun <code>$USER</code> telah dikunci (Locked)."
+                                    elif [[ "$ACTION" == "UNLOCK" ]]; then
+                                        /usr/local/bin/unlock-user "$USER"
+                                        send_msg "✅ Akun <code>$USER</code> telah dibuka (Unlocked)."
+                                    fi
+                                fi
+                                ;;
+                            MANAGE_HARI)
+                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
+                                    source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    HARI=$TEXT
+                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                    renew_account "$USER" "$HARI"
+                                else
+                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk jumlah hari!"
+                                fi
+                                ;;
+                        esac
+                        # Update offset and skip normal command processing
+                        OFFSET=$((UPDATE_ID + 1))
+                        echo "$OFFSET" > "$OFFSET_FILE"
+                        continue
+                    fi
+                fi
+
+                if is_admin "$SENDER_ID"; then
                         case "$DATA" in
                             cmd_list) list_account ;;
                             cmd_trafik) TEXT="/cek_trafik"; CMD="/cek_trafik" ;; # Trigger text parsing below or call directly
@@ -723,15 +883,24 @@ while true; do
                             cmd_info) TEXT="/info"; CMD="/info" ;;
                             cmd_backup) backup_vps ;;
                             cmd_create)
-                                msg_create="✨ <b>PANDUAN MEMBUAT AKUN</b> ✨\n━━━━━━━━━━━━━━━━━━━━\n"
-                                msg_create+="Ketik perintah manual di chat:\n\n"
-                                msg_create+="💎 <b>VLESS:</b>\n<code>/vless [nama] [hari] [ip] [gb]</code>\n"
-                                msg_create+="🌀 <b>VMESS:</b>\n<code>/vmess [nama] [hari] [ip] [gb]</code>\n"
-                                msg_create+="⚡️ <b>TROJAN:</b>\n<code>/trojan [nama] [hari] [ip] [gb]</code>\n\n"
-                                msg_create+="<b>Contoh:</b> <code>/vless budi 30 2 10</code>\n"
-                                msg_create+="<b>Trial:</b> <code>/trialvless 1h 1</code>\n━━━━━━━━━━━━━━━━━━━━"
-                                kb_back='{"inline_keyboard":[[{"text":"🔙 Kembali ke Menu","callback_data":"cmd_menu"}]]}'
-                                edit_msg "$msg_create" "$kb_back"
+                                msg_create="✨ <b>BUAT AKUN VPN BARU</b> ✨\n━━━━━━━━━━━━━━━━━━━━\nSilakan pilih jenis protokol yang ingin dibuat:"
+                                kb='{"inline_keyboard":['
+                                kb+='[{"text":"💎 VLESS","callback_data":"cmd_crt_vless"},{"text":"🌀 VMESS","callback_data":"cmd_crt_vmess"}],'
+                                kb+='[{"text":"⚡️ TROJAN","callback_data":"cmd_crt_trojan"}],'
+                                kb+='[{"text":"🔙 Batal & Kembali","callback_data":"cmd_menu"}]'
+                                kb+=']}'
+                                edit_msg "$msg_create" "$kb"
+                                ;;
+                            cmd_crt_vless|cmd_crt_vmess|cmd_crt_trojan)
+                                PROTO="UNKNOWN"
+                                [[ "$DATA" == "cmd_crt_vless" ]] && PROTO="VLESS"
+                                [[ "$DATA" == "cmd_crt_vmess" ]] && PROTO="VMESS"
+                                [[ "$DATA" == "cmd_crt_trojan" ]] && PROTO="TROJAN"
+                                echo "PROTO=$PROTO" > "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                echo "CREATE_USER" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                msg="🚀 <b>PEMBUATAN AKUN ${PROTO}</b> 🚀\n━━━━━━━━━━━━━━━━━━━━\n\n➡️ <b>Silakan ketik Username</b>\n(Tanpa spasi, misal: <b>budi</b>)\n\n<i>Ketik /cancel di chat untuk membatalkan.</i>"
+                                kb_cancel='{"inline_keyboard":[[{"text":"❌ Batalkan","callback_data":"cmd_cancel"}]]}'
+                                edit_msg "$msg" "$kb_cancel"
                                 ;;
                                                         cmd_menu)
                                 MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nSelamat datang di Panel Kendali VPS. Silakan pilih menu di bawah ini:"
@@ -744,15 +913,38 @@ while true; do
                                 edit_msg "$MSG" "$kb"
                                 ;;
                             cmd_manage)
-                                msg_manage="⚙️ <b>PANDUAN KELOLA AKUN</b> ⚙️\n━━━━━━━━━━━━━━━━━━━━\n"
-                                msg_manage+="Ketik perintah manual di chat:\n\n"
-                                msg_manage+="🗑 <b>Hapus Akun:</b>\n<code>/hapus [nama]</code>\n"
-                                msg_manage+="🔄 <b>Perpanjang:</b>\n<code>/renew [nama] [hari]</code>\n"
-                                msg_manage+="🔗 <b>Cek Link Akun:</b>\n<code>/detail [nama]</code>\n"
-                                msg_manage+="🔒 <b>Kunci (Lock):</b>\n<code>/lock [nama]</code>\n"
-                                msg_manage+="🔓 <b>Buka (Unlock):</b>\n<code>/unlock [nama]</code>\n━━━━━━━━━━━━━━━━━━━━"
-                                kb_back='{"inline_keyboard":[[{"text":"🔙 Kembali ke Menu","callback_data":"cmd_menu"}]]}'
-                                edit_msg "$msg_manage" "$kb_back"
+                                msg="⚙️ <b>KELOLA AKUN VPN</b> ⚙️\n━━━━━━━━━━━━━━━━━━━━\nPilih tindakan yang ingin dilakukan:"
+                                kb='{"inline_keyboard":['
+                                kb+='[{"text":"🔄 Perpanjang (Renew)","callback_data":"cmd_mng_renew"}],'
+                                kb+='[{"text":"🔗 Cek Link","callback_data":"cmd_mng_cek"},{"text":"🗑 Hapus Akun","callback_data":"cmd_mng_del"}],'
+                                kb+='[{"text":"🔒 Kunci (Lock)","callback_data":"cmd_mng_lock"},{"text":"🔓 Buka (Unlock)","callback_data":"cmd_mng_unlock"}],'
+                                kb+='[{"text":"🔙 Kembali ke Menu","callback_data":"cmd_menu"}]'
+                                kb+=']}'
+                                edit_msg "$msg" "$kb"
+                                ;;
+                            cmd_mng_renew|cmd_mng_del|cmd_mng_cek|cmd_mng_lock|cmd_mng_unlock)
+                                ACTION=""
+                                [[ "$DATA" == "cmd_mng_renew" ]] && ACTION="RENEW"
+                                [[ "$DATA" == "cmd_mng_del" ]] && ACTION="DEL"
+                                [[ "$DATA" == "cmd_mng_cek" ]] && ACTION="CEK"
+                                [[ "$DATA" == "cmd_mng_lock" ]] && ACTION="LOCK"
+                                [[ "$DATA" == "cmd_mng_unlock" ]] && ACTION="UNLOCK"
+                                echo "ACTION=$ACTION" > "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                echo "MANAGE_USER" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
+                                msg="⚙️ <b>TINDAKAN: ${ACTION}</b>\n━━━━━━━━━━━━━━━━━━━━\n\n➡️ <b>Silakan ketik Username akun</b> yang dituju:\n\n<i>Ketik /cancel di chat untuk membatalkan.</i>"
+                                kb_cancel='{"inline_keyboard":[[{"text":"❌ Batalkan","callback_data":"cmd_cancel"}]]}'
+                                edit_msg "$msg" "$kb_cancel"
+                                ;;
+                            cmd_cancel)
+                                rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
+                                MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nAksi dibatalkan. Silakan pilih menu di bawah ini:"
+                                kb='{"inline_keyboard":['
+                                kb+='[{"text":"🚀 BUAT AKUN BARU 🚀","callback_data":"cmd_create"}],'
+                                kb+='[{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"},{"text":"📋 Daftar Akun","callback_data":"cmd_list"}],'
+                                kb+='[{"text":"📊 Trafik Data","callback_data":"cmd_trafik"},{"text":"🟢 User Online","callback_data":"cmd_login"}],'
+                                kb+='[{"text":"💻 Info Server","callback_data":"cmd_info"},{"text":"📦 Backup Data","callback_data":"cmd_backup"}]'
+                                kb+=']}'
+                                edit_msg "$MSG" "$kb"
                                 ;;
                         esac
                         
