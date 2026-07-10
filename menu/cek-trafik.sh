@@ -59,20 +59,19 @@ for conf in /etc/xray/vless_exp.conf /etc/xray/vmess_exp.conf /etc/xray/trojan_e
     done < "$conf"
 done
 
-NOW=$(date +"%Y/%m/%d %H:%M")
-AGO1=$(date -d "1 minute ago" +"%Y/%m/%d %H:%M")
-AGO2=$(date -d "2 minutes ago" +"%Y/%m/%d %H:%M")
-
-tail -n 10000 /var/log/xray/access.log | grep -E "^($NOW|$AGO1|$AGO2)" | grep "accepted" > /etc/wibutunnel/tmp/recent_log.txt
+awk '/accepted/ {ip=$3; sub(/:[0-9]+$/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") map[ip]=email} END {for(ip in map) print ip, map[ip]}' <(tail -n 50000 /var/log/xray/access.log 2>/dev/null) > /etc/wibutunnel/tmp/ip_map.txt 2>/dev/null
+ss -ntp | awk 'NR>1 && $1=="ESTAB" {print $5}' | sed 's/:[^:]*$//' | sort -u > /etc/wibutunnel/tmp/active_ips.txt 2>/dev/null
 
 declare -A USER_IPS
-while read -r line; do
-    ip=$(echo "$line" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '127.0.0.1' | head -n 1)
-    email=$(echo "$line" | awk '{print $NF}' | tr -d '[]')
-    
-    if [[ -z "$email" || "$email" == "accepted" || "$email" == *"dummy"* || "$email" == *"api"* || -z "$ip" ]]; then continue; fi
-    if [[ ! "${USER_IPS[$email]}" =~ "$ip" ]]; then USER_IPS[$email]+="$ip "; fi
-done < /etc/wibutunnel/tmp/recent_log.txt
+while read -r active_ip; do
+    if [[ -z "$active_ip" ]]; then continue; fi
+    email=$(awk -v ip="$active_ip" '$1==ip {print $2}' /etc/wibutunnel/tmp/ip_map.txt | tail -n 1)
+    if [[ -n "$email" ]]; then
+        if [[ ! "${USER_IPS[$email]}" =~ "$active_ip" ]]; then 
+            USER_IPS[$email]+="$active_ip "
+        fi
+    fi
+done < /etc/wibutunnel/tmp/active_ips.txt
 
 declare -A ALL_USERS
 while read -r line; do
