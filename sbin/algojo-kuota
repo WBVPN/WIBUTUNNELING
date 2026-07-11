@@ -12,20 +12,24 @@ touch "$DB_USAGE"
 
 xray api statsquery --server=127.0.0.1:10085 2>/dev/null | jq -r '.stat[]? | "\(.name) \(.value)"' | grep 'downlink' | grep -v 'dummy' | grep -v 'api' | awk -F'>>>' '{print $2, $NF}' | awk '{print $1, $NF}' > /etc/wibutunnel/tmp/xray_quota_raw.txt
 
-while read -r user current_api; do
-    [[ -z "$user" || -z "$current_api" ]] && continue
-    data_lama=$(grep "^${user}:" "$DB_USAGE")
-    if [[ -n "$data_lama" ]]; then
-        accumulated=$(echo "$data_lama" | cut -d: -f2)
-        last_api=$(echo "$data_lama" | cut -d: -f3)
-    else
-        accumulated=0; last_api=0
-    fi
-    if (( current_api < last_api )); then delta=$current_api; else delta=$(( current_api - last_api )); fi
-    new_accumulated=$(( accumulated + delta ))
-    sed -i "/^${user}:/d" "$DB_USAGE"
-    echo "${user}:${new_accumulated}:${current_api}" >> "$DB_USAGE"
-done < /etc/wibutunnel/tmp/xray_quota_raw.txt
+awk '
+FNR==NR { curr[$1] = $2; next }
+{
+    if ($1 in curr) {
+        c = curr[$1]
+        delta = (c < $3) ? c : (c - $3)
+        $2 += delta
+        $3 = c
+        seen[$1] = 1
+    }
+    print $1 ":" $2 ":" $3
+}
+END {
+    for (u in curr) {
+        if (!seen[u]) print u ":" curr[u] ":" curr[u]
+    }
+}' /etc/wibutunnel/tmp/xray_quota_raw.txt FS=":" OFS=":" "$DB_USAGE" > /etc/wibutunnel/tmp/db_usage.tmp && mv /etc/wibutunnel/tmp/db_usage.tmp "$DB_USAGE"
+
 
 while read -r line; do
     user=$(echo "$line" | cut -d: -f1)
