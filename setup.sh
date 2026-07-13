@@ -20,7 +20,7 @@ MYIP=$(curl -sS --max-time 5 ipv4.icanhazip.com)
 clear
 echo -e "\e[1;36m[+] Memeriksa Lisensi Script...\e[0m"
 
-LINK_IZIN="https://ghproxy.net/https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
+LINK_IZIN="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
 GET_DATA=$(curl -sS --max-time 10 $LINK_IZIN | grep -w "$MYIP")
 
 CLIENT_NAME=$(echo "$GET_DATA" | awk '{print $2}' | tr -d '\r' | tr -d ' ')
@@ -293,7 +293,7 @@ fi
 cat /etc/letsencrypt/live/"$domain"/fullchain.pem /etc/letsencrypt/live/"$domain"/privkey.pem > /etc/haproxy/certs/"$domain".pem
 
 # XRAY CORE
-wget -qO- https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh | sed 's/https:\/\/github.com\//https:\/\/ghproxy.net\/https:\/\/github.com\//g' | bash -s -- install
+wget -qO- https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh | bash -s -- install
 
 # Backup config lama
 [ -f /usr/local/etc/xray/config.json ] && cp /usr/local/etc/xray/config.json "/usr/local/etc/xray/config.json.bak.$(date +%F_%H%M%S)"
@@ -414,7 +414,7 @@ backend xray_vmess_ntls
 HFEOF
 
 # Bypass GitHub 429 Rate Limit menggunakan GHProxy
-GITHUB_RAW="https://ghproxy.net/https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
+GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
 
 # [FIX] Download Menu - $RANDOM tanpa backslash agar benar-benar cache-bust
 download_menu() {

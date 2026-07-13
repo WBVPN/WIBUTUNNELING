@@ -36,7 +36,7 @@ Sudah terintegrasi fitur pemusnah IPv6 di inti OS (via sysctl & GRUB). VPS yang 
 Cukup *copy-paste* perintah berikut di terminal VPS (Ubuntu/Debian) Anda yang masih **FRESH** (Baru di-Rebuild):
 
 ```bash
-apt update -y && apt install -y curl wget && bash <(curl -s https://ghproxy.net/https://raw.githubusercontent.com/WBVPN/WIBUTUNNEL/main/setup.sh)
+apt update -y && apt install -y curl wget && bash <(curl -s https://raw.githubusercontent.com/WBVPN/WIBUTUNNEL/main/setup.sh)
 ```
 
 ## 📋 Daftar Menu

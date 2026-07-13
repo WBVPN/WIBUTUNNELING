@@ -38,7 +38,7 @@ check_license() {
     fi
 
     # Jika cache tidak ada/expired, tarik dari GitHub
-    local LINK_IZIN="https://ghproxy.net/https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
+    local LINK_IZIN="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
     local GET_DATA=$(curl -sS --max-time 10 "$LINK_IZIN" | grep -w "$MYIP")
     
     if [[ -z "$GET_DATA" ]]; then
