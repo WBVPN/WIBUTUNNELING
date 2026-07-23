@@ -12,12 +12,21 @@ mode=$2   # AUTO atau MANUAL
 [[ -z "$user" ]] && exit 1
 
 # Unlock dari Xray config
-jq '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != "'$user'"))' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+TMP_CFG=$(mktemp /tmp/xray.XXXXXX.json)
+trap 'rm -f "$TMP_CFG"' EXIT
+jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > "$TMP_CFG"
+if jq empty "$TMP_CFG" >/dev/null 2>&1; then
+    mv "$TMP_CFG" /usr/local/etc/xray/config.json
+else
+    rm -f "$TMP_CFG"
+fi
 
 # Hapus dari database lock
 sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
 
-systemctl restart xray >/dev/null 2>&1
+if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then
+    systemctl restart xray >/dev/null 2>&1
+fi
 
 # === TELEGRAM NOTIFICATION ===
 if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then

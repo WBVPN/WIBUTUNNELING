@@ -75,8 +75,13 @@ read -r sub_setting
 case $sub_setting in
     1)
         clear; echo -e "$LINE"; echo -e "         ${WHITE}MERESTART SERVICES...${NC}"; echo -e "$LINE"
-        systemctl restart xray haproxy cron
-        echo -e "${GREEN}Semua service berhasil direstart!${NC}"
+        if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then
+            systemctl restart xray haproxy cron
+            echo -e "${GREEN}Semua service berhasil direstart!${NC}"
+        else
+            echo -e "${RED}[!] Config Xray error, restart xray dibatalkan.${NC}"
+            systemctl restart haproxy cron
+        fi
         read -n 1 -s -r -p "Tekan tombol apa saja..."
         exec m-setting
         ;;

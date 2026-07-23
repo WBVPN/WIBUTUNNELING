@@ -138,7 +138,7 @@ if [[ ${#TRIAL_TO_DELETE[@]} -gt 0 || ${#NORMAL_TO_RECOVERY[@]} -gt 0 ]]; then
     
     jq "$JQ_FILTER" "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
     
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 fi
 
 # ==========================================

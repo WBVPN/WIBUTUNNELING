@@ -413,24 +413,28 @@ backend xray_vmess_ntls
     server vmess_ntls_server 127.0.0.1:10090 send-proxy-v2 check
 HFEOF
 
-# Bypass GitHub 429 Rate Limit menggunakan GHProxy
-GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
+# Download Menu dengan Fallback dari GitHub asli ke GHProxy
+GITHUB_RAW_DIRECT="https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
+GITHUB_RAW_PROXY="https://ghproxy.net/https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
+GITHUB_CDN="https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${REPO_NAME}@main"
 
-# [FIX] Download Menu - $RANDOM tanpa backslash agar benar-benar cache-bust
 download_menu() {
-    local url="${GITHUB_RAW}/$1?v=$RANDOM"
     local dest="/usr/local/bin/$2"
-    wget -T 5 -q -O "/etc/wibutunnel/tmp/$2" "$url"
-    local dl_status=$?
+    local tmp_file="/etc/wibutunnel/tmp/$2"
     
-    # Validasi apakah gagal download (timeout) atau kena HTML 429 Error
-    if [ $dl_status -ne 0 ] || grep -q "429: Too Many Requests" "/etc/wibutunnel/tmp/$2"; then
-        url="https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${REPO_NAME}@main/$1"
-        wget -T 5 -q -O "/etc/wibutunnel/tmp/$2" "$url"
+    # Coba direct GitHub dulu
+    wget -T 5 -q -O "$tmp_file" "${GITHUB_RAW_DIRECT}/$1?v=$RANDOM"
+    if [ $? -ne 0 ] || grep -q "429: Too Many Requests" "$tmp_file"; then
+        # Coba proxy
+        wget -T 5 -q -O "$tmp_file" "${GITHUB_RAW_PROXY}/$1?v=$RANDOM"
+        if [ $? -ne 0 ] || grep -q "429: Too Many Requests" "$tmp_file"; then
+            # Coba CDN
+            wget -T 5 -q -O "$tmp_file" "${GITHUB_CDN}/$1"
+        fi
     fi
     
-    if [ -s "/etc/wibutunnel/tmp/$2" ]; then
-        mv "/etc/wibutunnel/tmp/$2" "$dest"
+    if [ -s "$tmp_file" ] && ! grep -q "429: Too Many Requests" "$tmp_file"; then
+        mv "$tmp_file" "$dest"
         chmod +x "$dest"
     else
         echo -e "\e[31m[!] Gagal mengunduh $2\e[0m"
@@ -450,6 +454,8 @@ download_menu "menu/menu-recovery.sh" "menu-recovery"
 download_menu "menu/cek-trafik.sh" "cek-trafik"
 download_menu "common.sh" "common.sh"
 download_menu "menu/bot-daemon.sh" "bot-daemon"
+download_menu "sbin/lock-user" "lock-user"
+download_menu "sbin/unlock-user" "unlock-user"
 
 # =========================================================
 # SISTEM RECOVERY CENTER & ALGOJO MONITOR (v4.0 PERFECT)
@@ -457,123 +463,6 @@ download_menu "menu/bot-daemon.sh" "bot-daemon"
 touch /etc/wibutunnel/locked_users.db /etc/wibutunnel/limit_ip.db /etc/wibutunnel/limit_bw.db /etc/wibutunnel/user_usage.db
 chmod 600 /etc/wibutunnel/*.db
 
-cat << 'LEOF' > /usr/local/bin/lock-user
-#!/bin/bash
-source /etc/wibutunnel/bot.conf 2>/dev/null
-
-user=$1
-duration=$2
-reason=$3
-proto=$4
-limit_str="$5"
-usage_str="$6"
-
-[[ -z "$user" ]] && exit 1
-
-DOMAIN=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
-IP_VPS=$(curl -sS --max-time 5 ipv4.icanhazip.com)
-ISP=$(cat /etc/wibutunnel/tmp/ipapi.txt 2>/dev/null | sed -n '2p')
-[[ -z "$ISP" ]] && ISP=$(curl -sS --max-time 5 ip-api.com/line/?fields=isp | head -n 1)
-
-if [[ "$user" == *"trial"* ]]; then
-    jq --arg u "$user" '
-        .inbounds[1].settings.clients |= map(select(.email != $u)) |
-        .inbounds[2].settings.clients |= map(select(.email != $u)) |
-        .inbounds[3].settings.clients |= map(select(.email != $u)) |
-        .inbounds[4].settings.clients |= map(select(.email != $u)) |
-        .inbounds[5].settings.clients |= map(select(.email != $u)) |
-        .inbounds[6].settings.clients |= map(select(.email != $u)) |
-        .inbounds[7].settings.clients |= map(select(.email != $u)) |
-        .inbounds[8].settings.clients |= map(select(.email != $u))
-    ' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
-
-    sed -i "/^${user}:/d" /etc/xray/vless_exp.conf 2>/dev/null
-    sed -i "/^${user}:/d" /etc/xray/vmess_exp.conf 2>/dev/null
-    sed -i "/^${user}:/d" /etc/xray/trojan_exp.conf 2>/dev/null
-    sed -i "/^${user}:/d" /etc/wibutunnel/limit_ip.db 2>/dev/null
-    sed -i "/^${user}:/d" /etc/wibutunnel/limit_bw.db 2>/dev/null
-    sed -i "/^${user}:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-    sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
-
-    FOOTER="Deleted Permanently"
-else
-    jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$u] | unique)' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
-
-    now=$(date +%s)
-    unlock_time=0
-    [[ "$duration" != "0" && -n "$duration" ]] && unlock_time=$((now + (duration * 60)))
-
-    sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-    echo "$user:$now:$unlock_time:$reason" >> /etc/wibutunnel/locked_users.db
-
-    if [[ "$duration" == "0" ]]; then
-        FOOTER="Move to Recovery"
-    else
-        FOOTER="Locked Temporarily (${duration}m)"
-    fi
-fi
-
-systemctl restart xray >/dev/null 2>&1
-
-if [[ "$reason" == "QUOTA" ]]; then TITLE="Limit Bandwidth"
-elif [[ "$reason" == "IP_LIMIT" ]]; then TITLE="Limit IP"
-else TITLE="Manual Locked"; fi
-
-[[ -z "$proto" ]] && proto="VPN"
-[[ -z "$limit_str" ]] && limit_str="Unknown"
-[[ -z "$usage_str" ]] && usage_str="Unknown"
-
-if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
-    PESAN="IP     : <code>${IP_VPS}</code>
-DOMAIN : <code>${DOMAIN}</code>
-ISP    : <code>${ISP}</code>
-${TITLE} ${proto}
-✓ <code>${user}</code>
-Limit - ${limit_str}
-Usage - ${usage_str}
-
-<i>${FOOTER}</i>"
-
-    curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-        -F "chat_id=${CHAT_ID}" -F "parse_mode=html" -F "text=${PESAN}" >/dev/null 2>&1
-fi
-LEOF
-chmod +x /usr/local/bin/lock-user
-
-cat << 'ULEOF' > /usr/local/bin/unlock-user
-#!/bin/bash
-source /etc/wibutunnel/bot.conf 2>/dev/null
-user=$1
-mode=$2
-
-[[ -z "$user" ]] && exit 1
-
-jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
-
-sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-
-systemctl restart xray >/dev/null 2>&1
-
-if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
-    DOMAIN=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
-    WAKTU=$(date '+%d %b %Y %H:%M WIB')
-    
-    if [[ "$mode" == "AUTO" ]]; then CARA="Otomatis (Durasi Lock Habis)"; else CARA="Manual oleh Admin"; fi
-
-    PESAN="
-🔓 <b>USER DIBUKA KEMBALI</b>
-
-<b>User     :</b> <code>${user}</code>
-<b>Cara     :</b> ${CARA}
-<b>Waktu    :</b> ${WAKTU}
-<b>Domain   :</b> <code>${DOMAIN}</code>
-
-<i>User sudah bisa login kembali.</i>
-"
-    curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" -F "chat_id=${CHAT_ID}" -F "disable_web_page_preview=true" -F "parse_mode=html" -F "text=${PESAN}" >/dev/null 2>&1
-fi
-ULEOF
-chmod +x /usr/local/bin/unlock-user
 
 cat << 'ALEOF' > /usr/local/sbin/algojo-wibu
 #!/bin/bash
@@ -769,12 +658,14 @@ chmod +x /usr/local/bin/watchdog.sh
 
 systemctl enable cron >/dev/null 2>&1
 
-crontab -l 2>/dev/null | grep -v -E "xp|reboot|watchdog|algojo|unlocker|drop_caches|renew-cert-wibu" | crontab -
-(crontab -l 2>/dev/null; echo "* * * * * /usr/local/bin/watchdog.sh") | crontab -
-(crontab -l 2>/dev/null; echo "* * * * * /usr/local/bin/xp") | crontab -
-(crontab -l 2>/dev/null; echo "0 5 * * * /sbin/reboot") | crontab -
-(crontab -l 2>/dev/null; echo "0 0 * * * sync; echo 3 > /proc/sys/vm/drop_caches && swapoff -a && swapon -a") | crontab -
-(crontab -l 2>/dev/null; echo "* * * * * /usr/local/sbin/unlocker-wibu") | crontab -
+cat << 'CRONEOF' > /etc/cron.d/wibutunnel
+* * * * * root /usr/local/bin/watchdog.sh
+* * * * * root /usr/local/bin/xp
+0 5 * * * root /sbin/reboot
+0 0 * * * root sync; echo 3 > /proc/sys/vm/drop_caches && swapoff -a && swapon -a
+* * * * * root /usr/local/sbin/unlocker-wibu
+CRONEOF
+chmod 644 /etc/cron.d/wibutunnel
 
 # SSL Auto Renewal
 cat > /usr/local/bin/renew-cert-wibu.sh << 'RCEOF'
@@ -787,7 +678,7 @@ cat /etc/letsencrypt/live/$domain/fullchain.pem /etc/letsencrypt/live/$domain/pr
 systemctl start haproxy
 RCEOF
 chmod +x /usr/local/bin/renew-cert-wibu.sh
-(crontab -l 2>/dev/null; echo "0 4 * * * /usr/local/bin/renew-cert-wibu.sh") | crontab -
+echo "0 4 * * * root /usr/local/bin/renew-cert-wibu.sh" >> /etc/cron.d/wibutunnel
 
 # Service Override
 mkdir -p /etc/systemd/system/haproxy.service.d /etc/systemd/system/xray.service.d
@@ -828,7 +719,8 @@ ss -tlnp | grep -q ":10085" && echo -e "Xray API (10085)    : \e[32m[OK]\e[0m" |
 systemctl is-active --quiet wibu-daemon && echo -e "Algojo Daemon       : \e[32m[OK]\e[0m" || echo -e "Algojo Daemon       : \e[31m[FAIL]\e[0m"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "    INSTALASI SELESAI! REBOOT DALAM 8 DETIK...    "
+echo "               INSTALASI SELESAI!                 "
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-sleep 8
+echo ""
+read -n 1 -s -r -p "Tekan tombol apapun untuk mereboot VPS, atau tekan Ctrl+C untuk membatalkan..."
 reboot

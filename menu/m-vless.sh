@@ -104,7 +104,7 @@ add_user() {
     sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
     echo "${user}:${limit_ip}" >> "$DB_IP"
     echo "${user}:${limit_kuota}" >> "$DB_BW"
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 
     vless_tls="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
     vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
@@ -200,7 +200,7 @@ trial_user() {
     echo "${user}:${exp_date}" >> "$EXP_FILE"
     sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
     echo "${user}:0" >> "$DB_IP"; echo "${user}:0" >> "$DB_BW"
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 
     vless_tls="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
     vless_ntls="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
@@ -292,7 +292,7 @@ delete_user() {
     sed -i "/^${user}:/d" "$EXP_FILE"
     sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
     sed -i "/^${user}:/d" "$DB_LOCK" 2>/dev/null; sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
     echo ""; read -p "Tekan Enter..." dummy
 }
 
@@ -394,7 +394,7 @@ renew_user() {
 
     new_exp=$(date -d "@$(( base_sec + (tambahan * 86400) ))" +"%Y-%m-%d %H:%M:%S")
     sed -i "/^${user}:/d" "$EXP_FILE"; echo "${user}:${new_exp}" >> "$EXP_FILE"
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 
     echo -e "\n${GREEN}Berhasil! Expired baru: $new_exp${NC}"
     if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
@@ -474,12 +474,12 @@ lock_unlock_user() {
     if grep -q "^${user}:" "$DB_LOCK" 2>/dev/null; then
         jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json /usr/local/etc/xray/config.json
         sed -i "/^${user}:/d" "$DB_LOCK" 2>/dev/null
-        systemctl restart xray >/dev/null 2>&1
+        if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
         echo -e "\n${GREEN}Akun '$user' berhasil di-UNLOCK! Kini bisa login kembali.${NC}"
     else
         jq --arg user "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json /usr/local/etc/xray/config.json
         echo "$user:$now:0:LOCK" >> "$DB_LOCK"
-        systemctl restart xray >/dev/null 2>&1
+        if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
         echo -e "\n${RED}Akun '$user' berhasil di-LOCK! Dipindahkan ke Recovery.${NC}"
     fi
     echo ""; read -p "Tekan Enter..." dummy

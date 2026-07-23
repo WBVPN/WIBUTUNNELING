@@ -120,6 +120,7 @@ for line in "${locked_list[@]}"; do
     [[ "$reason" == "QUOTA" ]]      && txt_rsn="${RED}QUOTA       ${NC}"
     [[ "$reason" == "IP_LIMIT" ]]   && txt_rsn="${RED}IP LIMIT    ${NC}"
     [[ "$reason" == "MANUAL_DEL" ]] && txt_rsn="${CYAN}DELETED     ${NC}"
+    [[ "$reason" == "LOCK" ]]       && txt_rsn="${RED}LOCKED      ${NC}"
     
     status="${RED}RECOVERY${NC}"
     
@@ -127,7 +128,7 @@ for line in "${locked_list[@]}"; do
     ((idx++))
 done
 
-if [[ "$GHOST_FOUND" == true ]]; then systemctl restart xray >/dev/null 2>&1; fi
+if [[ "$GHOST_FOUND" == true ]]; then if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi; fi
 
 total=$((idx - 1))
 if [ "$total" -eq 0 ]; then
@@ -206,7 +207,7 @@ sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
 # UNLOCK DARI XRAY
 jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
 sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-systemctl restart xray >/dev/null 2>&1
+if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 
 echo -e "\n ${GREEN}BERHASIL! Akun ${user} telah aktif kembali.${NC}"
 read -p " Tekan Enter Untuk Kembali..."

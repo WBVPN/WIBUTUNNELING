@@ -53,6 +53,13 @@ if [[ ${#USERS_TO_LOCK[@]} -gt 0 ]]; then
     for usr in "${USERS_TO_LOCK[@]}"; do
         jq_args+=("$usr")
     done
-    jq --argjson users "$(printf '%s\n' "${jq_args[@]}" | jq -R . | jq -s .)" '(.routing.rules[] | select(.outboundTag == "blocked" and .user != null) | .user) |= (. + $users | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
-    systemctl restart xray >/dev/null 2>&1
+    TMP_CFG=$(mktemp /tmp/xray.XXXXXX.json)
+    trap 'rm -f "$TMP_CFG"' EXIT
+    jq --argjson users "$(printf '%s\n' "${jq_args[@]}" | jq -R . | jq -s .)" '(.routing.rules[] | select(.outboundTag == "blocked" and .user != null) | .user) |= (. + $users | unique)' /usr/local/etc/xray/config.json > "$TMP_CFG"
+    if jq empty "$TMP_CFG" >/dev/null 2>&1; then
+        mv "$TMP_CFG" /usr/local/etc/xray/config.json
+        systemctl restart xray >/dev/null 2>&1
+    else
+        rm -f "$TMP_CFG"
+    fi
 fi

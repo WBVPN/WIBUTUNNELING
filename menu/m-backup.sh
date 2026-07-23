@@ -38,7 +38,8 @@ if [[ "$1" == "auto" ]]; then
     BACKUP_FILE="${BACKUP_DIR}/${DOMAIN_VPS}-${IP_VPS}.zip"
 
     cd /
-    zip -q -P "$CHAT_ID" -r "$BACKUP_FILE" \
+    ZIP_PASS=$(echo -n "$CHAT_ID" | md5sum | awk '{print $1}' | cut -c 1-8)
+    zip -q -P "$ZIP_PASS" -r "$BACKUP_FILE" \
         usr/local/etc/xray/config.json \
         etc/xray/vless_exp.conf \
         etc/xray/vmess_exp.conf \
@@ -67,7 +68,7 @@ if [[ "$1" == "auto" ]]; then
     MSG_ID=$(echo "$RESPONSE" | jq -r '.result.message_id // empty')
     
     if [[ -n "$FILE_ID" && -n "$MSG_ID" ]]; then
-        NEW_CAPTION=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${TGL}</code>\n\n🔑 <b>DATA RESTORE:</b>\n<code>${FILE_ID}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+        NEW_CAPTION=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${TGL}</code>\n\n🔑 <b>DATA RESTORE:</b>\n<code>${FILE_ID}</code>\n\n🔐 <b>Password:</b> <code>${ZIP_PASS}</code>")
         curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption" \
             -F "chat_id=${CHAT_ID}" \
             -F "message_id=${MSG_ID}" \
@@ -104,7 +105,8 @@ do_backup() {
     BACKUP_FILE="${BACKUP_DIR}/${DOMAIN_VPS}-${IP_VPS}.zip"
 
     cd /
-    zip -q -P "$CHAT_ID" -r "$BACKUP_FILE" \
+    ZIP_PASS=$(echo -n "$CHAT_ID" | md5sum | awk '{print $1}' | cut -c 1-8)
+    zip -q -P "$ZIP_PASS" -r "$BACKUP_FILE" \
         usr/local/etc/xray/config.json \
         etc/xray/vless_exp.conf \
         etc/xray/vmess_exp.conf \
@@ -138,7 +140,7 @@ do_backup() {
         MSG_ID=$(echo "$RESPONSE" | jq -r '.result.message_id // empty')
         
         if [[ -n "$FILE_ID" && -n "$MSG_ID" ]]; then
-            NEW_CAPTION=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${TGL}</code>\n\n🔑 <b>DATA RESTORE:</b>\n<code>${FILE_ID}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+            NEW_CAPTION=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${TGL}</code>\n\n🔑 <b>DATA RESTORE:</b>\n<code>${FILE_ID}</code>\n\n🔐 <b>Password:</b> <code>${ZIP_PASS}</code>")
             curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption" \
                 -F "chat_id=${CHAT_ID}" \
                 -F "message_id=${MSG_ID}" \
@@ -196,7 +198,8 @@ do_restore() {
     apt-get install -y unzip >/dev/null 2>&1
     mkdir -p "${BACKUP_DIR}/restore-tmp"
 
-    unzip -P "$CHAT_ID" -o "${BACKUP_DIR}/restore.zip" -d "${BACKUP_DIR}/restore-tmp" >/dev/null 2>&1 || {
+    ZIP_PASS=$(echo -n "$CHAT_ID" | md5sum | awk '{print $1}' | cut -c 1-8)
+    unzip -P "$ZIP_PASS" -o "${BACKUP_DIR}/restore.zip" -d "${BACKUP_DIR}/restore-tmp" >/dev/null 2>&1 || {
         unzip -o "${BACKUP_DIR}/restore.zip" -d "${BACKUP_DIR}/restore-tmp" >/dev/null 2>&1
     }
 
@@ -221,7 +224,12 @@ do_restore() {
     chmod 600 /etc/wibutunnel/*.db 2>/dev/null
     rm -rf "${BACKUP_DIR}/restore-tmp"
 
-    systemctl restart xray haproxy cron >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then
+        systemctl restart xray haproxy cron >/dev/null 2>&1
+    else
+        systemctl restart haproxy cron >/dev/null 2>&1
+        echo -e "${RED}[!] WARNING: Config Xray hasil restore korup! Xray tidak di-restart.${NC}"
+    fi
     rm -f "${BACKUP_DIR}/restore.zip"
 
     echo -e "${GREEN}[+] RESTORE BERHASIL! Semua data berhasil dikembalikan.${NC}"

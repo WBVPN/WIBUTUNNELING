@@ -12,6 +12,10 @@ touch $OFFSET_FILE
 # Utility function to send message
 send_msg() {
     local text=$(echo -e "$1")
+    if [[ ${#text} -gt 4000 ]]; then
+        text="${text:0:4000}
+... (Output dipotong karena limitasi karakter Telegram)"
+    fi
     local target_id="${SENDER_ID:-$CHAT_ID}"
     local keyboard="$2"
     if [[ -n "$keyboard" ]]; then
@@ -144,7 +148,7 @@ create_account() {
 
     echo "${user}:${limit_ip}" >> /etc/wibutunnel/limit_ip.db
     echo "${user}:${limit_bw}" >> /etc/wibutunnel/limit_bw.db
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 
     [[ "$limit_ip" -eq 0 ]] && limit_ip="Bebas" || limit_ip="${limit_ip} IP"
     [[ "$limit_bw" -eq 0 ]] && limit_bw="Unlimited" || limit_bw="${limit_bw} GB"
@@ -231,7 +235,7 @@ delete_account() {
     sed -i "/^${user}:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
     sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
 
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
     send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen."
 }
 
@@ -298,6 +302,72 @@ renew_account() {
     sed -i "s/^${user}:.*/${user}:${exp_date}/" "$exp_file"
     
     send_msg "✅ <b>Berhasil Perpanjang Akun!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Ditambah :</b> ${hari}\n<b>Expired Baru :</b> <code>${tampil_exp}</code>"
+}
+
+
+do_info() {
+    IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
+    UPTIME=$(uptime -p | cut -d' ' -f2-)
+    RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
+    CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+    DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
+    OS=$(cat /etc/os-release | grep -w PRETTY_NAME | cut -d= -f2 | tr -d '"')
+    INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>🖥 OS     :</b> <code>${OS}</code>\n<b>🌐 IP     :</b> <code>${IP}</code>\n<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n<b>🧠 RAM    :</b> <code>${RAM}</code>\n<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n<b>💾 Disk   :</b> <code>${DISK}</code>\n━━━━━━━━━━━━━━━━━━━━"
+    send_msg "$INFO_MSG"
+}
+
+do_trafik() {
+    if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
+        TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+        idx=1
+        while IFS=":" read -r bytes usr; do
+            if [[ "$bytes" -ge 1073741824 ]]; then
+                gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }')
+                vol="${gb} GB"
+            elif [[ "$bytes" -ge 1048576 ]]; then
+                mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }')
+                vol="${mb} MB"
+            elif [[ "$bytes" -ge 1024 ]]; then
+                kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }')
+                vol="${kb} KB"
+            else
+                vol="${bytes} Bytes"
+            fi
+            if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
+            elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
+            elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
+            else continue
+            fi
+            TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
+            ((idx++))
+            [[ $idx -gt 10 ]] && break
+        done < <(awk -F':' '{ 
+            if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next;
+            down=($2=="null"||$2=="")?0:$2; 
+            up=($3=="null"||$3=="")?0:$3; 
+            print (down+up)":"$1 
+        }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
+        TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
+        send_msg "$TRF_MSG"
+    else
+        send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
+    fi
+}
+
+do_login() {
+    LOG_FILE="/var/log/xray/access.log"
+    if [[ ! -s "$LOG_FILE" ]]; then
+        send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"
+        return
+    fi
+    THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
+    LOGIN_DATA=$(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) 2>/dev/null)
+    if [[ -z "$LOGIN_DATA" ]]; then
+        send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
+    else
+        LOG_MSG=$(format_online_users "$LOGIN_DATA")
+        send_msg "$LOG_MSG"
+    fi
 }
 
 list_account() {
@@ -621,23 +691,7 @@ while true; do
                             backup_vps
                             ;;
                         /info)
-                            IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
-                            UPTIME=$(uptime -p | cut -d' ' -f2-)
-                            RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
-                            CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-                            DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
-                            OS=$(cat /etc/os-release | grep -w PRETTY_NAME | cut -d= -f2 | tr -d '"')
-                            
-                            INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n"
-                            INFO_MSG+="━━━━━━━━━━━━━━━━━━━━\n"
-                            INFO_MSG+="<b>🖥 OS     :</b> <code>${OS}</code>\n"
-                            INFO_MSG+="<b>🌐 IP     :</b> <code>${IP}</code>\n"
-                            INFO_MSG+="<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n"
-                            INFO_MSG+="<b>🧠 RAM    :</b> <code>${RAM}</code>\n"
-                            INFO_MSG+="<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n"
-                            INFO_MSG+="<b>💾 Disk   :</b> <code>${DISK}</code>\n"
-                            INFO_MSG+="━━━━━━━━━━━━━━━━━━━━"
-                            send_msg "$INFO_MSG"
+                            do_info
                             ;;
                         /lock|/unlock)
                             if [[ -z "$ARG1" ]]; then
@@ -650,7 +704,7 @@ while true; do
                                     elif jq -e --arg u "$ARG1" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
                                         jq --arg user "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
                                         echo "$ARG1:$(date +%s):0:LOCK" >> "$DB_LOCK"
-                                        systemctl restart xray >/dev/null 2>&1
+                                        if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
                                         send_msg "🔒 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DIKUNCI (Dipindahkan ke Recovery)."
                                     else
                                         send_msg "❌ <b>Gagal!</b>\nAkun <code>$ARG1</code> tidak ditemukan."
@@ -659,7 +713,7 @@ while true; do
                                     if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
                                         jq --arg u "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
                                         sed -i "/^${ARG1}:/d" "$DB_LOCK" 2>/dev/null
-                                        systemctl restart xray >/dev/null 2>&1
+                                        if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
                                         send_msg "🔓 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DI-UNLOCK dan dapat digunakan kembali."
                                     else
                                         send_msg "⚠️ Akun <code>$ARG1</code> tidak dalam status terkunci."
@@ -668,59 +722,10 @@ while true; do
                             fi
                             ;;
                         /cek_trafik)
-                            if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
-                                TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                                idx=1
-                                while IFS=":" read -r bytes usr; do
-                                    if [[ "$bytes" -ge 1073741824 ]]; then
-                                        gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }')
-                                        vol="${gb} GB"
-                                    elif [[ "$bytes" -ge 1048576 ]]; then
-                                        mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }')
-                                        vol="${mb} MB"
-                                    elif [[ "$bytes" -ge 1024 ]]; then
-                                        kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }')
-                                        vol="${kb} KB"
-                                    else
-                                        vol="${bytes} Bytes"
-                                    fi
-                                    if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
-                                    elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
-                                    elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
-                                    else continue
-                                    fi
-                                    TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
-                                    ((idx++))
-                                    [[ $idx -gt 10 ]] && break
-                                done < <(awk -F':' '{ 
-                                    if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next;
-                                    down=($2=="null"||$2=="")?0:$2; 
-                                    up=($3=="null"||$3=="")?0:$3; 
-                                    print (down+up)":"$1 
-                                }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
-                                TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
-                                send_msg "$TRF_MSG"
-                            else
-                                send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
-                            fi
+                            do_trafik
                             ;;
                         /cek_login)
-                            LOG_FILE="/var/log/xray/access.log"
-                            if [[ ! -s "$LOG_FILE" ]]; then
-                                send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"
-                                continue
-                            fi
-                            
-                            # [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
-                            THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
-                            LOGIN_DATA=$(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) 2>/dev/null)
-
-                            if [[ -z "$LOGIN_DATA" ]]; then
-                                send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
-                            else
-                                LOG_MSG=$(format_online_users "$LOGIN_DATA")
-                                send_msg "$LOG_MSG"
-                            fi
+                            do_login
                             ;;
                     esac
                 fi
@@ -759,48 +764,13 @@ while true; do
                                 ;;
                         esac
                         
-                        # Hack to reuse existing commands for simple ones
-                        if [[ "$DATA" == "cmd_trafik" || "$DATA" == "cmd_login" || "$DATA" == "cmd_info" ]]; then
-                            # Copy from above
-                            if [[ "$DATA" == "cmd_info" ]]; then
-                                IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
-                                UPTIME=$(uptime -p | cut -d' ' -f2-)
-                                RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
-                                CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-                                DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
-                                OS=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-                                INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>🖥 OS     :</b> <code>${OS}</code>\n<b>🌐 IP     :</b> <code>${IP}</code>\n<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n<b>🧠 RAM    :</b> <code>${RAM}</code>\n<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n<b>💾 Disk   :</b> <code>${DISK}</code>\n━━━━━━━━━━━━━━━━━━━━"
-                                send_msg "$INFO_MSG"
-                            elif [[ "$DATA" == "cmd_trafik" ]]; then
-                                if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
-                                    TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                                    idx=1
-                                    while IFS=":" read -r bytes usr; do
-                                        if [[ "$bytes" -ge 1073741824 ]]; then gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }'); vol="${gb} GB"
-                                        elif [[ "$bytes" -ge 1048576 ]]; then mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }'); vol="${mb} MB"
-                                        elif [[ "$bytes" -ge 1024 ]]; then kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }'); vol="${kb} KB"
-                                        else vol="${bytes} Bytes"; fi
-                                        if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else continue; fi
-                                        TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
-                                        ((idx++)); [[ $idx -gt 10 ]] && break
-                                    done < <(awk -F':' '{ if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next; down=($2=="null"||$2=="")?0:$2; up=($3=="null"||$3=="")?0:$3; print (down+up)":"$1 }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
-                                    TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
-                                    send_msg "$TRF_MSG"
-                                else
-                                    send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
-                                fi
-                            elif [[ "$DATA" == "cmd_login" ]]; then
-                                LOG_FILE="/var/log/xray/access.log"
-                                if [[ ! -s "$LOG_FILE" ]]; then send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"; else
-                                    # [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
-                                    THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
-                                    LOGIN_DATA=$(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) 2>/dev/null)
-                                    if [[ -z "$LOGIN_DATA" ]]; then send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"; else
-                                        LOG_MSG=$(format_online_users "$LOGIN_DATA")
-                                        send_msg "$LOG_MSG"
-                                    fi
-                                fi
-                            fi
+                        if [[ "$DATA" == "cmd_info" ]]; then
+                            do_info
+                        elif [[ "$DATA" == "cmd_trafik" ]]; then
+                            do_trafik
+                        elif [[ "$DATA" == "cmd_login" ]]; then
+                            do_login
+                        fifi
                         fi
                     fi
                 fi

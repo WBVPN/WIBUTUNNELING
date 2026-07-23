@@ -64,7 +64,7 @@ for line in "${locked_list[@]}"; do
     printf " %-3s %-14s %-8s %b %b\n" "$idx)" "$u" "$proto" "$txt_rsn" "${RED}RECOVERY${NC}"; ((idx++))
 done
 
-[[ "$GHOST_FOUND" == true ]] && systemctl restart xray >/dev/null 2>&1
+[[ "$GHOST_FOUND" == true ]] && if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 
 total=$((idx - 1))
 if [ "$total" -eq 0 ]; then
@@ -99,7 +99,7 @@ if [[ "$target" == "deleteallusers" ]]; then
         sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
     done
     > /etc/wibutunnel/locked_users.db
-    systemctl restart xray >/dev/null 2>&1
+    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
     echo -e "\n ${GREEN}SEMUA AKUN RECOVERY TELAH DIMUSNAHKAN PERMANEN!${NC}"
     read -p " Tekan Enter..." dummy
     [[ -n "$FILTER_PROTO" ]] && exec "m-${proto_lower}" || exec menu
@@ -127,7 +127,7 @@ sed -i "/^${user}:/d" /etc/wibutunnel/limit_bw.db 2>/dev/null; echo "${user}:${b
 sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
 
 jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
-sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null; systemctl restart xray >/dev/null 2>&1
+sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null; if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
 
 echo -e "\n ${GREEN}BERHASIL! Akun ${user} telah aktif kembali.${NC}"
 read -p " Tekan Enter..."; [[ -n "$FILTER_PROTO" ]] && exec "m-${proto_lower}" || exec menu
