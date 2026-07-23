@@ -588,7 +588,7 @@ cat << 'WDEOF' > /usr/local/bin/wibu-daemon
 while true; do
     /usr/local/sbin/algojo-wibu >/dev/null 2>&1
     /usr/local/sbin/algojo-kuota >/dev/null 2>&1
-    sleep 10
+    sleep 30
 done
 WDEOF
 chmod +x /usr/local/bin/wibu-daemon

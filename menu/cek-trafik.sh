@@ -66,7 +66,7 @@ while IFS="|" read -r email count iplist; do
     if [[ -n "$email" ]]; then
         USER_IPS["$email"]="$iplist"
     fi
-done < <(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]" " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 /var/log/xray/access.log 2>/dev/null) 2>/dev/null)
+done < <(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]" " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 10000 /var/log/xray/access.log 2>/dev/null) 2>/dev/null)
 
 declare -A ALL_USERS
 while read -r line; do

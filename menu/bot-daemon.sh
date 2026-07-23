@@ -567,9 +567,14 @@ detail_account() {
     send_msg "$pesan"
 }
 
+LAST_MOD=0
 while true; do
     if [[ ! -f "$BOT_CONF" ]]; then sleep 5; continue; fi
-    source "$BOT_CONF"
+    CURR_MOD=$(stat -c %Y "$BOT_CONF" 2>/dev/null || echo 0)
+    if [[ "$CURR_MOD" != "$LAST_MOD" ]]; then
+        source "$BOT_CONF"
+        LAST_MOD=$CURR_MOD
+    fi
     if [[ -z "$BOT_TOKEN" || -z "$CHAT_ID" ]]; then sleep 5; continue; fi
     
     OFFSET=$(cat $OFFSET_FILE 2>/dev/null)

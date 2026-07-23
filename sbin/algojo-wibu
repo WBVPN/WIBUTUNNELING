@@ -12,8 +12,15 @@ if [ -f "$LOCK_CONF" ]; then source "$LOCK_CONF"; fi
 [[ ! -f "$DB_IP" ]] && exit 0
 
 # [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
+LOG_FILE="/var/log/xray/access.log"
+OFFSET_FILE="/etc/wibutunnel/tmp/algojo_offset"
+LAST_OFFSET=$(cat "$OFFSET_FILE" 2>/dev/null || echo 0)
+NEW_OFFSET=$(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
+if [[ $NEW_OFFSET -lt $LAST_OFFSET ]]; then LAST_OFFSET=0; fi
+
 THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
-LOGIN_DATA=$(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]" " : "") ip; } } } END { for (e in ips) print e, ips[e] }' <(tail -n 50000 /var/log/xray/access.log 2>/dev/null) 2>/dev/null)
+LOGIN_DATA=$(dd if="$LOG_FILE" bs=1 skip=$LAST_OFFSET count=$((NEW_OFFSET-LAST_OFFSET)) 2>/dev/null | awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]" " : "") ip; } } } END { for (e in ips) print e, ips[e] }' 2>/dev/null)
+echo "$NEW_OFFSET" > "$OFFSET_FILE"
 
 USERS_TO_LOCK=()
 while read -r email ip_list; do

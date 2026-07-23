@@ -98,8 +98,7 @@ add_user() {
     vmess_ntls="vmess://$(echo -n '{"v":"2","ps":"'$user'","add":"'$domain'","port":"80","id":"'$uuid'","aid":"0","net":"ws","path":"/vmess-ntls","type":"none","host":"'$domain'","tls":"","sni":""}' | base64 -w 0)"
     vmess_grpc="vmess://$(echo -n '{"v":"2","ps":"'$user'","add":"'$domain'","port":"443","id":"'$uuid'","aid":"0","net":"grpc","path":"vmess","type":"none","host":"'$domain'","tls":"tls","sni":"'$domain'"}' | base64 -w 0)"
 
-    CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null); ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
-    [[ -z "$CITY" ]] && CITY="Unknown"; [[ -z "$ISP" ]] && ISP="Unknown"
+    get_isp_city
 
     PESAN_AKUN="${THICKLINE}
                VMESS
@@ -187,8 +186,7 @@ trial_user() {
     vmess_ntls="vmess://$(echo -n '{"v":"2","ps":"'$user'","add":"'$domain'","port":"80","id":"'$uuid'","aid":"0","net":"ws","path":"/vmess-ntls","type":"none","host":"'$domain'","tls":"","sni":""}' | base64 -w 0)"
     vmess_grpc="vmess://$(echo -n '{"v":"2","ps":"'$user'","add":"'$domain'","port":"443","id":"'$uuid'","aid":"0","net":"grpc","path":"vmess","type":"none","host":"'$domain'","tls":"tls","sni":"'$domain'"}' | base64 -w 0)"
 
-    CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null); ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
-    [[ -z "$CITY" ]] && CITY="Unknown"; [[ -z "$ISP" ]] && ISP="Unknown"
+    get_isp_city
 
     PESAN_AKUN="${THICKLINE}
              VMESS TRIAL
@@ -283,8 +281,7 @@ cek_user() {
     vmess_ntls="vmess://$(echo -n '{"v":"2","ps":"'$user'","add":"'$domain'","port":"80","id":"'$uuid'","aid":"0","net":"ws","path":"/vmess-ntls","type":"none","host":"'$domain'","tls":"","sni":""}' | base64 -w 0)"
     vmess_grpc="vmess://$(echo -n '{"v":"2","ps":"'$user'","add":"'$domain'","port":"443","id":"'$uuid'","aid":"0","net":"grpc","path":"vmess","type":"none","host":"'$domain'","tls":"tls","sni":"'$domain'"}' | base64 -w 0)"
 
-    CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null); ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
-    [[ -z "$CITY" ]] && CITY="Unknown"; [[ -z "$ISP" ]] && ISP="Unknown"
+    get_isp_city
 
     PESAN_AKUN="${THICKLINE}
                VMESS

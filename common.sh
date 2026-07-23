@@ -16,7 +16,32 @@ mkdir -p /etc/wibutunnel/tmp
 chmod 700 /etc/wibutunnel/tmp
 
 # INI FUNGSI YANG KEMARIN HILANG: Export IP Global
-export MYIP=$(curl -sS --max-time 5 ipv4.icanhazip.com)
+export MYIP=$(curl -sS --max-time 5 ipv4.icanhazip.com 2>/dev/null)
+
+get_isp_city() {
+    local CACHE_FILE="/etc/wibutunnel/tmp/isp_city.cache"
+    local CACHE_TTL=86400 # 24 jam
+    local CURRENT_TIME=$(date +%s)
+
+    if [[ -f "$CACHE_FILE" ]]; then
+        local FILE_MOD_TIME=$(stat -c %Y "$CACHE_FILE")
+        if [[ $((CURRENT_TIME - FILE_MOD_TIME)) -le $CACHE_TTL ]]; then
+            IFS='|' read -r c_isp c_city < "$CACHE_FILE"
+            if [[ -n "$c_isp" ]]; then
+                export ISP="$c_isp"
+                export CITY="$c_city"
+                return 0
+            fi
+        fi
+    fi
+
+    export ISP=$(curl -sS --max-time 3 ip-api.com/line/?fields=isp | head -n 1)
+    export CITY=$(curl -sS --max-time 3 ip-api.com/line/?fields=city | head -n 1)
+    [[ -z "$ISP" ]] && ISP="Unknown"
+    [[ -z "$CITY" ]] && CITY="Unknown"
+    
+    echo "${ISP}|${CITY}" > "$CACHE_FILE"
+}
 
 check_license() {
     local CACHE_FILE="/etc/wibutunnel/tmp/wibu_license.cache"
